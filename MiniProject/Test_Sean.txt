@@ -1,1 +1,12 @@
-Hello Worl!
+git <command> help: 
+
+ls: list directory files and folders
+cd <directory name>: change directory, can press tab to auto-complete
+
+git status: check what that status of files are in the directory, tracked, untracked, modified
+git add -A: add all files to repository
+
+
+git pull: update to latest repository
+git commit -am "This message will be displayed as the title of the update in GitHub": 
+git push: update local repository to GitHubgit
