@@ -11,7 +11,7 @@ import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
 from struct import *
 
 bus = smbus.SMBus(1)
-ardAddress - 0x04 #arduinos initialized I2C address
+ardAddress = 0x04 #arduinos initialized I2C address
 lcd_columns = 16
 lcd_rows = 2
 i2c = board.I2C() #initalize i2c object for comm
@@ -25,6 +25,57 @@ currentPositionOfWheel = 0
 
 
 ## Video Capture
+
+## Quadrant Calculation
+
+def findQuadrant(markID, corners, resX=640, resY=480):
+    # Initial instantiations of variables and print labels to be used later
+    markerLabel = 'Marker {} detected in Quadrant {}\n'
+    sumOffX = sumOffY = 0
+    resX /= 2
+    resY /= 2
+    quad = -1
+
+    # Runs an average of the marker corners to find the horizontal center,
+    # then finds the quadrant based off the sign of the distance from the
+    # center of the image
+    # Y values are unintuitive because +y is down in an image
+    for ind in range(4):
+        sumOffX += corners[ind][0] - resX
+        sumOffY += corners[ind][1] - resY
+
+    if sumOffX >= 0:
+        if sumOffY >= 0: quad = 3
+        else: quad = 0
+    else:
+        if sumOffY >= 0: quad = 2
+        else: quad = 1
+    
+    print(markerLabel.format(markID, quad+1))
+    return quad
+
+def sendSetpoint(setPoint):
+    print("X")
+    bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
+    
+def recieveCurrentPosition():
+    currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
+    #first pack bytes to string representing bytes
+    posBytesString = ''.join([chr(k) for k in currentPosFloatBytes])
+    #then struct unpack bytes to float
+    currentPositionOfWheel = unpack("f", posBytesString)
+    
+def writeLCD():
+    message = "Setpoint: " + str(mostRecentDetectedQuad * 3.1415) + "\nPosition: "#+ currentPositionOfWheel  + ""
+    lcd.message = message
+    
+
+def handleI2C():
+    #sendSetpoint(mostRecentDetectedQuad)
+    #currentPositionOfWheel = recieveCurrentPosition()
+    writeLCD()
+
+    
 def vidCap():
     # Starts a cv video capture for continuous object tracking
     cap = cv.VideoCapture(-1)
@@ -60,7 +111,8 @@ def vidCap():
         marked = aruco.drawDetectedMarkers(frame, corners)
         cv.namedWindow('Detected Markers', cv.WINDOW_NORMAL)
         cv.imshow('Detected Markers', marked)
-
+        handleI2C()
+        
         if cv.waitKey(1) == ord('q'):
             break
 
@@ -68,63 +120,15 @@ def vidCap():
     cap.release()
     cv.destroyAllWindows()
 
-## Quadrant Calculation
 
-def findQuadrant(markID, corners, resX=640, resY=480):
-    # Initial instantiations of variables and print labels to be used later
-    markerLabel = 'Marker {} detected in Quadrant {}\n'
-    sumOffX = sumOffY = 0
-    resX /= 2
-    resY /= 2
-    quad = -1
-
-    # Runs an average of the marker corners to find the horizontal center,
-    # then finds the quadrant based off the sign of the distance from the
-    # center of the image
-    # Y values are unintuitive because +y is down in an image
-    for ind in range(4):
-        sumOffX += corners[ind][0] - resX
-        sumOffY += corners[ind][1] - resY
-
-    if sumOffX >= 0:
-        if sumOffY >= 0: quad = 3
-        else: quad = 0
-    else:
-        if sumOffY >= 0: quad = 2
-        else: quad = 1
-    
-    print(markerLabel.format(markID, quad+1))
-    return quad
-
-def sendSetpoint(setPoint):
-    bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
-    
-def recieveCurrentPosition():
-    currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
-    #first pack bytes to string representing bytes
-    posBytesString = ''.join([chr(k) for k in currentPosFloatBytes])
-    #then struct unpack bytes to float
-    currentPositionOfWheel = unpack("f", posBytesString)
-    
-def writeLCD():
-    message = "Setpoint: " + mostRecentDetectedQuad * 3.1415 + "\nPosition: "+ currentPositionOfWheel  + ""
-    lcd.message = message
-
-def handleI2C():
-    sendSetpoint(mostRecentDetectedQuad)
-    currentPositionOfWheel = recieveCurrentPosition()
-    writeLCD()
-    
-    
 
 ## Small User Interaction Code
 loop = True
 while(loop):
+    i = 0
     print('Press <ENTER> to begin quadrant tracking.')
     print('Press <q> to stop the program if needed.\n')
     input('')
-
     vidCap()
-
-
+    
 
