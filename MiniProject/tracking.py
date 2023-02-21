@@ -26,6 +26,8 @@ currentPositionOfWheel = 0
 
 ## Video Capture
 
+
+
 ## Quadrant Calculation
 
 def findQuadrant(markID, corners, resX=640, resY=480):
@@ -55,28 +57,35 @@ def findQuadrant(markID, corners, resX=640, resY=480):
     return quad
 
 def sendSetpoint(setPoint):
-    print("X")
     bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
     
 def recieveCurrentPosition():
     currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
     #first pack bytes to string representing bytes
+    print(currentPosFloatBytes)
     posBytesString = ''.join([chr(k) for k in currentPosFloatBytes])
+    print(str(posBytesString[0]) + "|" +str(posBytesString[1]) + "|" +str(posBytesString[2]) + "|" +str(posBytesString[3]))
     #then struct unpack bytes to float
-    currentPositionOfWheel = unpack("f", posBytesString)
+    #currentPositionOfWheel = unpack("f", posBytesString)
+
     
 def writeLCD():
-    message = "Setpoint: " + str(mostRecentDetectedQuad * 3.1415) + "\nPosition: "#+ currentPositionOfWheel  + ""
+    global mostRecentDetectedQuad
+    lcd.clear()
+    message = "Setpoint: " + str(mostRecentDetectedQuad) + "\nPosition: "#+ currentPositionOfWheel  + ""
     lcd.message = message
+    #print(mostRecentDetectedQuad)
     
 
 def handleI2C():
-    #sendSetpoint(mostRecentDetectedQuad)
-    #currentPositionOfWheel = recieveCurrentPosition()
-    writeLCD()
+    global mostRecentDetectedQuad
+    sendSetpoint(mostRecentDetectedQuad)
+    currentPositionOfWheel = recieveCurrentPosition()
+    #writeLCD()
 
     
 def vidCap():
+    global mostRecentDetectedQuad
     # Starts a cv video capture for continuous object tracking
     cap = cv.VideoCapture(-1)
     if not cap.isOpened():
@@ -105,14 +114,17 @@ def vidCap():
         else:
             for ind in range(markIDs.size):
                 mostRecentDetectedQuad = findQuadrant(markIDs[ind], corners[ind][0])
-
+                #print(mostRecentDetectedQuad)
+                
         # Draws the detected markers on the frame for display
         # Mostly for testing, can be cut to reduce lag
         marked = aruco.drawDetectedMarkers(frame, corners)
         cv.namedWindow('Detected Markers', cv.WINDOW_NORMAL)
         cv.imshow('Detected Markers', marked)
-        handleI2C()
-        
+        try:
+            handleI2C()
+        except:
+            lcd.message = "IOError"
         if cv.waitKey(1) == ord('q'):
             break
 
