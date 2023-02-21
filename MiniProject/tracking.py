@@ -1,6 +1,27 @@
+#OpenCV setup
 import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
+
+#I2C setup
+import smbus
+import time
+import board
+import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
+
+bus = smbus.SMBus(1)
+ardAddress - 0x04 #arduinos initialized I2C address
+lcd_columns = 16
+lcd_rows = 2
+i2c = board.I2C() #initalize i2c object for comm
+
+lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_columns, lcd_rows)
+lcd.clear()
+lcd.color = [0,0,100]
+
+mostRecentDetectedQuad = None
+currentPositionOfWheel = None
+
 
 ## Video Capture
 def vidCap():
@@ -31,7 +52,7 @@ def vidCap():
             print('No markers found.\n')
         else:
             for ind in range(markIDs.size):
-                findQuadrant(markIDs[ind], corners[ind][0])
+                mostRecentDetectedQuad = findQuadrant(markIDs[ind], corners[ind][0])
 
         # Draws the detected markers on the frame for display
         # Mostly for testing, can be cut to reduce lag
@@ -74,6 +95,20 @@ def findQuadrant(markID, corners, resX=640, resY=480):
     print(markerLabel.format(markID, quad+1))
     return quad
 
+def sendSetpoint(setPoint):
+    
+    
+def recieveCurrentPosition():
+    
+    
+def writeLCD():
+
+
+def handleI2C():
+    
+    
+    
+
 ## Small User Interaction Code
 loop = True
 while(loop):
@@ -82,3 +117,6 @@ while(loop):
     input('')
 
     vidCap()
+
+
+
