@@ -8,6 +8,7 @@ import smbus
 import time
 import board
 import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
+from struct import *
 
 bus = smbus.SMBus(1)
 ardAddress - 0x04 #arduinos initialized I2C address
@@ -19,8 +20,8 @@ lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_columns, lcd_rows)
 lcd.clear()
 lcd.color = [0,0,100]
 
-mostRecentDetectedQuad = None
-currentPositionOfWheel = None
+mostRecentDetectedQuad = 0 #may need to update value to None
+currentPositionOfWheel = 0
 
 
 ## Video Capture
@@ -96,16 +97,23 @@ def findQuadrant(markID, corners, resX=640, resY=480):
     return quad
 
 def sendSetpoint(setPoint):
-    
+    bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
     
 def recieveCurrentPosition():
-    
+    currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
+    #first pack bytes to string representing bytes
+    posBytesString = ''.join([chr(k) for k in currentPosFloatBytes])
+    #then struct unpack bytes to float
+    currentPositionOfWheel = unpack("f", posBytesString)
     
 def writeLCD():
-
+    message = "Setpoint: " + mostRecentDetectedQuad * 3.1415 + "\nPosition: "+ currentPositionOfWheel  + ""
+    lcd.message = message
 
 def handleI2C():
-    
+    sendSetpoint(mostRecentDetectedQuad)
+    currentPositionOfWheel = recieveCurrentPosition()
+    writeLCD()
     
     
 
