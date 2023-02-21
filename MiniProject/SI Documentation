@@ -1,0 +1,8 @@
+Workflow:
+- Pi identifies any aruco markers
+- If aruco found, send setpoint (0,1,2,3), all of which will be interpreted * pi - offset 0 for write, single byte to encode 0-3
+
+Potentially implement a 'wait' or timer here, to prevent overloading of I2C and devices
+	- After sending setpoint, request position from arduino (arduino stores as float) - offset 1 for request (on initial message send), then request and expect 4 bytes of data representing 32 bit float 
+	- Arduino sends back, in radians, float for position
+	- Pi sends string to LCD corresponding to setpoint and positions
