@@ -53,13 +53,13 @@
 
 //I2C stuff
 
-#define FOLLOWER_ADDRESS = 0x04;
+#define FOLLOWER_ADDRESS 0x04
 int data[32]; // buffer to store i2c message into
 
 typedef union I2C_Packet_t {
   byte floatArrayNums[4];
   float floatNum;
-} 
+} ;
 
 
 void setup() {
@@ -71,7 +71,7 @@ void setup() {
   pinMode(M1PWM, OUTPUT);
   Wire.begin(FOLLOWER_ADDRESS);
   Wire.onReceive(receiveData);
-  Wire.onRequest(requestData);
+  Wire.onRequest(sendData);
 
 
   // Set baud rate
@@ -145,11 +145,24 @@ void loop() {
 }
 
 void receiveData(int byteCount) {
-
+  int i = 0; //counter of num bytes recieved
+  while(Wire.available()) { //continuously grab data
+    data[i] = Wire.read();
+    i++; //i iterates up to num bytes recieved
+  }
+  if (i == 1) { //data was sent to read, 1 is read offset instruction
+    //no need to do anything, just ignore
+  } else {
+    //place code to update aruco position here
+    arucoPosition = data[1]; // since offset sent first, arucoPosition in data[1]
+    //Serial.println(arucoPosition);
+  }
 
 }
 
 void sendData() {
-
+  I2C_Packet_t tempPacket;
+  tempPacket.floatNum = motorPosition_rad;
+  Wire.write(tempPacket.floatArrayNums, 4);
 
 }
