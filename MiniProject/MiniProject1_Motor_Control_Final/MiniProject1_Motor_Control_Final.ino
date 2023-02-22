@@ -82,6 +82,7 @@ void setup() {
 
 void loop() {
   motorSetPosition_rad = arucoPosition * (PI / 2.0);  // determine set position in radians
+  
 
   // Determine if new aruco position
   if (motorSetPosition_rad != previousSetPosition_rad) {
@@ -98,8 +99,18 @@ void loop() {
 
     // read current encoder position and convert to rad
     motorPosition_rad = ((float) encoder.read() * fullRotation) / (float) counts_per_rotation;
+    Serial.print("MP: ");
+    Serial.print(motorPosition_rad);
+    Serial.println();
     
     // Calculate error and determine PWM output
+
+    float currentMotorPosition = fmod(motorPosition_rad, fullRotation);
+    /*
+    if (currentMotorPosition > PI) {
+      currentMotorPosition += 
+    }*/
+    
     error = motorSetPosition_rad - fmod(motorPosition_rad, fullRotation);   // normalize position with fmod if >360 or <-360
     integralError += error * ((float) delta_t / 1000.0);                    // assuming delta_t is calculated in seconds, gives rad * sec
     PI_pwmOut = (Kp * error) + (Ki * integralError);                        // PWM value to control motor speed
