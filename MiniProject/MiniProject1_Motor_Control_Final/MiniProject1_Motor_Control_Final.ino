@@ -46,7 +46,7 @@
  // Positional variables
  int motorDirection = 0;                  // 1 is CCW, -1 is CW
  float motorPosition_rad = 0.0;           // current position of motor in radians
- int arucoPosition = 1;                   // aruco position: 0,1,2, or 3
+ int arucoPosition = 0;                   // aruco position: 0,1,2, or 3
  float motorSetPosition_rad = 0.0;        // desired set position based on aruco position
  float previousSetPosition_rad = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
@@ -136,11 +136,13 @@ void loop() {
 
     // Test information print to serial port
     // !*! delete/comment before demo
-    Serial.print(motorPosition_rad);
+    Serial.print(fmod(motorPosition_rad, fullRotation) * 180.0 / PI);
     Serial.print(", ");
-    Serial.print(motorDirection);
-    Serial.print(", ");
-    Serial.print(PI_pwmOut);
+    Serial.print(motorSetPosition_rad * 180.0 / PI);
+    Serial.print(", E:");
+    Serial.print(error);
+    Serial.print(", p");
+    Serial.print((Kp * error));
     Serial.println();
     
   }
