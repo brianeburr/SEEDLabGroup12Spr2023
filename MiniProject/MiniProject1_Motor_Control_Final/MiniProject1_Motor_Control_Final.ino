@@ -46,7 +46,7 @@
  // Positional variables
  int motorDirection = 0;                  // 1 is CCW, -1 is CW
  float motorPosition_rad = 0.0;           // current position of motor in radians
- int arucoPosition = 0;                   // aruco position: 0,1,2, or 3
+ int arucoPosition = 1;                   // aruco position: 0,1,2, or 3
  float motorSetPosition_rad = 0.0;        // desired set position based on aruco position
  float previousSetPosition_rad = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
@@ -99,19 +99,18 @@ void loop() {
 
     // read current encoder position and convert to rad
     motorPosition_rad = ((float) encoder.read() * fullRotation) / (float) counts_per_rotation;
-    Serial.print("MP: ");
-    Serial.print(motorPosition_rad);
-    Serial.println();
+    
+    
+    // Fix edge cases where error is being calculated incorrectly (should be a maximum of PI)
+    float currentMotorPosition = fmod(motorPosition_rad, fullRotation);
+    if ( (currentMotorPosition > PI) && (arucoPosition == 0)) {
+      currentMotorPosition = currentMotorPosition - (2.0 * PI);
+    }
+    //if ( (currentMotorPosition > (3.0/2.0) * PI) && )
+
     
     // Calculate error and determine PWM output
-
-    float currentMotorPosition = fmod(motorPosition_rad, fullRotation);
-    /*
-    if (currentMotorPosition > PI) {
-      currentMotorPosition += 
-    }*/
-    
-    error = motorSetPosition_rad - fmod(motorPosition_rad, fullRotation);   // normalize position with fmod if >360 or <-360
+    error = motorSetPosition_rad - currentMotorPosition;   // normalize position with fmod if >360 or <-360
     integralError += error * ((float) delta_t / 1000.0);                    // assuming delta_t is calculated in seconds, gives rad * sec
     PI_pwmOut = (Kp * error) + (Ki * integralError);                        // PWM value to control motor speed
 
