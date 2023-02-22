@@ -20,6 +20,7 @@
 
 // this library tracks the encoder better than my code, so I am using it here
 #include <Encoder.h>
+#include <Wire.h>
 
  // pin connections
  const int encoderPinA = 2;   // CLK pin
@@ -50,6 +51,17 @@
  float previousSetPosition_rad = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
 
+//I2C stuff
+
+#define FOLLOWER_ADDRESS 0x04
+int data[32]; // buffer to store i2c message into
+
+typedef union I2C_Packet_t {
+  byte floatArrayNums[4];
+  float floatNum;
+} ;
+
+
 void setup() {
 
   // assign digital motor pins as outputs
@@ -57,6 +69,10 @@ void setup() {
   pinMode(motorEnable, OUTPUT);
   pinMode(M1DIR, OUTPUT);
   pinMode(M1PWM, OUTPUT);
+
+  Wire.begin(FOLLOWER_ADDRESS);
+  Wire.onReceive(receiveData);
+  Wire.onRequest(sendData);
 
   digitalWrite(motorEnable, 1);
 
@@ -129,3 +145,27 @@ void loop() {
     
   }
 }
+
+void receiveData(int byteCount) {
+  int i = 0; //counter of num bytes recieved
+  while(Wire.available()) { //continuously grab data
+    data[i] = Wire.read();
+    i++; //i iterates up to num bytes recieved
+  }
+  if (i == 1) { //data was sent to read, 1 is read offset instruction
+    //no need to do anything, just ignore
+  } else {
+    //place code to update aruco position here
+    arucoPosition = data[1]; // since offset sent first, arucoPosition in data[1]
+    //Serial.println(arucoPosition);
+  }
+
+}
+
+void sendData() {
+  I2C_Packet_t tempPacket;
+  tempPacket.floatNum = motorPosition_rad;
+  Wire.write(tempPacket.floatArrayNums, 4);
+
+}
+
