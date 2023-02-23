@@ -97,10 +97,9 @@ void loop() {
 
     float fullRotation = 2.0 * PI;  // make calculations easier below
 
-    // read current encoder position and convert to rad
-
-    // Handle the case where encoder moves from pos to neg counts
-    // normalizes motorPosition so that it stays within 0-359
+    // handle the case where encoder moves from pos to neg counts
+    // normalizes encoder counts to 0 - counts_per_rotation
+    // make sure motor position is within 0 - 359
     int encoderReading = encoder.read();
     while (encoderReading < 0) {
         encoderReading += counts_per_rotation;
@@ -108,37 +107,43 @@ void loop() {
     while (encoderReading >= counts_per_rotation) {
         encoderReading -= counts_per_rotation;
     }    
+
+    // read current encoder position and convert to rad
     motorPosition_rad = ((float) encoderReading * fullRotation) / (float) counts_per_rotation;
     
-    
-    // make sure motor position is within 0-359 (might be redundant with above code?? havent tested)
-    //float currentMotorPosition = fmod(motorPosition_rad, fullRotation);
-    
-    // Calculate error based on shortest path to set position
+    // Calculate error based on shortest path to set position general calculations below
     // errorCCW = (setAngle - currentAngle + 180) % 360 - 180
     // errorCW = (currentAngle - setAngle + 180) % 360 - 180
-    float errorCW = fmod((float) motorSetPosition_rad - (float) motorPosition_rad + (float) PI, fullRotation) - (float) PI;
-    float errorCCW = fmod((float) motorPosition_rad - (float) motorSetPosition_rad + (float) PI, fullRotation) - (float) PI;
+    // !NOTE! can swap CW and CCW to change sign associated with error (like when we add another wheel) 
+    // currently set as desired with motor shaft pointed at you
+    float errorCW = fmod(motorSetPosition_rad - motorPosition_rad + PI, fullRotation) - PI;
+    float errorCCW = fmod(motorPosition_rad - motorSetPosition_rad + PI, fullRotation) - PI;
+    float previousError = error;
 
     if (abs(errorCW) < abs(errorCCW)) {
-        error = -1 * errorCW;
+      error = -1 * errorCW;
     } else {
-        error = errorCCW;
+      error = errorCCW;
     }
 
-    integralError += error * ((float) delta_t / 1000.0);                                  // assuming delta_t is calculated in seconds, gives rad * sec
-    PI_pwmOut = (Kp * abs(error)) + (Ki * abs(integralError));                            // PWM value to control motor speed
+    // reset integralError if rotated past 180 degrees, changing the sign of the error term
+    if (error * previousError < 0) {
+      integralError = 0;
+    }
+
+    // calculate integral error and determine PWM output to motor
+    integralError += error * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
+    PI_pwmOut = (Kp * abs(error)) + (Ki * abs(integralError));  // PWM value to control motor speed
 
     // Make sure PWM value is within allowable range 0-255
-    // pwm values going negative, had to use abs() to constrain to positive vals
+    // pwm values can be negative, use abs() to constrain to positive vals, direction already accounted for
     PI_pwmOut = constrain(abs(PI_pwmOut), 0, 255);   
 
     // write PWM signal to motor to change speed
     analogWrite(M1PWM, PI_pwmOut);
 
     // Determine if CCW or CW movement is shortest path to set point
-    // (destination - source + 360) % 360 > 180, move CCW
-    // *!* could implement using sign of error? currently setup so that -error -> turn CW, +error -> turn CCW
+    // *!* move inside where error is calculated? needs testing  
     if (error > 0) {
       digitalWrite(M1DIR, HIGH);    // rotate CCW
       motorDirection = 1;
@@ -147,6 +152,8 @@ void loop() {
       motorDirection = -1;
     }
 
+    // *!* old method to determine direction, leaving here until certain it's not needed because the algorithm does work
+    // (destination - source + 360) % 360 > 180, move CCW
     /*
     if (fmod(motorSetPosition_rad - fmod(motorPosition_rad, fullRotation) + fullRotation, fullRotation) > PI) {
       digitalWrite(M1DIR, HIGH);    // rotate CCW
@@ -175,7 +182,7 @@ void loop() {
     Serial.print(", ");
     Serial.print(motorSetPosition_rad * 180.0 / PI);
     Serial.print(", E:");
-    Serial.print(error * 180.0 / PI);
+    Serial.print(integralError);
     Serial.print(", D:");
     Serial.print(motorDirection);
     Serial.println();
