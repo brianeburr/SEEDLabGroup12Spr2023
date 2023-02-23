@@ -19,6 +19,7 @@ i2c = board.I2C() #initalize i2c object for comm
 lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_columns, lcd_rows)
 lcd.clear()
 lcd.color = [0,0,100]
+lcd.message = "hello"
 
 mostRecentDetectedQuad = 0 #may need to update value to None
 currentPositionOfWheel = 0
@@ -60,19 +61,21 @@ def sendSetpoint(setPoint):
     bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
     
 def recieveCurrentPosition():
+    global currentPositionOfWheel
     currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
-    #first pack bytes to string representing bytes
-    print(currentPosFloatBytes)
-    posBytesString = ''.join([chr(k) for k in currentPosFloatBytes])
-    print(str(posBytesString[0]) + "|" +str(posBytesString[1]) + "|" +str(posBytesString[2]) + "|" +str(posBytesString[3]))
-    #then struct unpack bytes to float
-    #currentPositionOfWheel = unpack("f", posBytesString)
+    currentPositionOfWheel = unpack('f', bytes(currentPosFloatBytes))[0]
+    print(currentPositionOfWheel)
+
 
     
 def writeLCD():
     global mostRecentDetectedQuad
+    global currentPositionOfWheel
+    global lcd
+    print("X")
     lcd.clear()
-    message = "Setpoint: " + str(mostRecentDetectedQuad) + "\nPosition: "#+ currentPositionOfWheel  + ""
+    message = "Setpoint: " + str(mostRecentDetectedQuad) + "\nPosition: "+ str(round(currentPositionOfWheel,2))
+    print(message)
     lcd.message = message
     #print(mostRecentDetectedQuad)
     
@@ -80,8 +83,11 @@ def writeLCD():
 def handleI2C():
     global mostRecentDetectedQuad
     sendSetpoint(mostRecentDetectedQuad)
-    currentPositionOfWheel = recieveCurrentPosition()
-    #writeLCD()
+    print("setpoint sent")
+    recieveCurrentPosition()
+    print("Position calc'd")
+    writeLCD()
+    print("lcd written")
 
     
 def vidCap():
@@ -99,6 +105,7 @@ def vidCap():
 
     # Runs detection code until user input interrupt
     while True:
+        #time.sleep(1)
         # If there is an issue with frame reading, exits the program
         ret, frame = cap.read()
         if not ret:
@@ -121,10 +128,13 @@ def vidCap():
         marked = aruco.drawDetectedMarkers(frame, corners)
         cv.namedWindow('Detected Markers', cv.WINDOW_NORMAL)
         cv.imshow('Detected Markers', marked)
-        try:
-            handleI2C()
-        except:
-            lcd.message = "IOError"
+        handleI2C()
+       # try:
+        #    handleI2C()
+         #   pass
+        #except:
+         #   lcd.message = "IOError"
+        #lcd.message = "hello"
         if cv.waitKey(1) == ord('q'):
             break
 
