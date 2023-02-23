@@ -61,6 +61,7 @@ def sendSetpoint(setPoint):
     bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
     
 def recieveCurrentPosition():
+    global currentPositionOfWheel
     currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
     currentPositionOfWheel = unpack('f', bytes(currentPosFloatBytes))[0]
     print(currentPositionOfWheel)
@@ -75,7 +76,7 @@ def writeLCD():
     lcd.clear()
     message = "Setpoint: " + str(mostRecentDetectedQuad) + "\nPosition: "+ str(round(currentPositionOfWheel,2))
     print(message)
-    lcd.message = "hello"
+    lcd.message = message
     #print(mostRecentDetectedQuad)
     
 
@@ -83,7 +84,7 @@ def handleI2C():
     global mostRecentDetectedQuad
     sendSetpoint(mostRecentDetectedQuad)
     print("setpoint sent")
-    currentPositionOfWheel = recieveCurrentPosition()
+    recieveCurrentPosition()
     print("Position calc'd")
     writeLCD()
     print("lcd written")
@@ -133,7 +134,7 @@ def vidCap():
          #   pass
         #except:
          #   lcd.message = "IOError"
-        lcd.message = "hello"
+        #lcd.message = "hello"
         if cv.waitKey(1) == ord('q'):
             break
 
