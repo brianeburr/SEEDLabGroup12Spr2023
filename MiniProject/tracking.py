@@ -105,6 +105,7 @@ def vidCap():
 
     # Runs detection code until user input interrupt
     while True:
+        idx = 0
         #time.sleep(1)
         # If there is an issue with frame reading, exits the program
         ret, frame = cap.read()
@@ -128,7 +129,10 @@ def vidCap():
         marked = aruco.drawDetectedMarkers(frame, corners)
         cv.namedWindow('Detected Markers', cv.WINDOW_NORMAL)
         cv.imshow('Detected Markers', marked)
-        handleI2C()
+        if idx == 10:
+            handleI2C()
+            idx = 0
+        idx+=1
        # try:
         #    handleI2C()
          #   pass
