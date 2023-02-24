@@ -5,7 +5,7 @@ import cv2.aruco as aruco
 
 #I2C setup
 import smbus
-import time
+import time, threading
 import board
 import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
 from struct import *
@@ -88,6 +88,7 @@ def handleI2C():
     print("Position calc'd")
     writeLCD()
     print("lcd written")
+    threading.Timer(0.5, handleI2C).start()
 
     
 def vidCap():
@@ -129,10 +130,10 @@ def vidCap():
         marked = aruco.drawDetectedMarkers(frame, corners)
         cv.namedWindow('Detected Markers', cv.WINDOW_NORMAL)
         cv.imshow('Detected Markers', marked)
-        if idx == 10:
-            handleI2C()
-            idx = 0
-        idx+=1
+        #if idx == 10:
+         #   handleI2C()      ------re enable for i2c without threading
+        #    idx = 0
+        #idx+=1
        # try:
         #    handleI2C()
          #   pass
@@ -155,6 +156,7 @@ while(loop):
     print('Press <ENTER> to begin quadrant tracking.')
     print('Press <q> to stop the program if needed.\n')
     input('')
+    handleI2C()
     vidCap()
     
 
