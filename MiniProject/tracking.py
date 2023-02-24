@@ -88,7 +88,7 @@ def handleI2C():
     print("Position calc'd")
     writeLCD()
     print("lcd written")
-    threading.Timer(0.5, handleI2C).start()
+    threading.Timer(0.2, handleI2C).start()
 
     
 def vidCap():
