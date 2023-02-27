@@ -1,6 +1,6 @@
 /*
  * Mini Project 1
- * Filename: MiniProject1_Motor_Control.ino
+ * Filename: MiniProject1_Motor_Control_Final.ino
  *
  * Purpose: Move a DC motor with an encoder to a set position based on the location
             of an aruco marker that is located with a Raspberry Pi + camera.
@@ -13,12 +13,13 @@
             whether clockwise or counter-clockwise rotation provides the shortest path
             and sets the movement of the wheel in the appropriate direction.
  * Class: EENG350, SEED Lab
- * Creator: Sean West
- * Date: 02/21/2023
+ * Creator: Sean West (PI motor control)
+ * Co-Creator: Brian Burr (I2C)
+ * Date: 02/26/2023
  *
-*/
+ */
 
-// this library tracks the encoder better than my code, so I am using it here
+// include libraries
 #include <Encoder.h>
 #include <Wire.h>
 
@@ -28,7 +29,6 @@
  const int motorEnable = 4;   // Tri-state di sable both motor chanels when LOW (enable)
  const int M1DIR = 7;         // Motor polarity 1 (direction)
  const int M1PWM = 9;         // Motor volt 1 "speed"
- //const int nSF = 12;          // Status flag indicator, dont think we need this?
  
  // setup encoder class to be used
  Encoder encoder(encoderPinA, encoderPinB);
@@ -36,18 +36,18 @@
  // PI controller variables
  float error = 0.0;                       // in rad
  float integralError = 0.0;               // in rad * seconds
- int PI_pwmOut = 0;                       // PWM controll 0-255
- const int Kp = 98;                       // proportional controll
- const float Ki = 7.22;                   // integrator controll
+ int PI_pwmOut = 0;                       // PWM control 0-255
+ const int Kp = 98;                       // proportional control
+ const float Ki = 7.22;                   // integrator control
  int updateFrequency = 100;               // 0.1 seconds per update
- const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts
+ const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
  unsigned long int previousMillis = 0;    // use to determine delta_t
  
- // Positional variables
- int motorDirection = 0;                  // 1 is CCW, -1 is CW
+ // positional variables
+ int motorDirection = 0;                  // test variable to determine motor direction: 1 CCW, -1 CW, 0 not moving
  float motorPosition_rad = 0.0;           // current position of motor in radians
- int arucoPosition = 0;                   // aruco position: 0,1,2, or 3
- float motorSetPosition_rad = 0.0;        // desired set position based on aruco position
+ int arucoPosition = 2;                   // aruco position: 0,1,2, or 3
+ float motorSetPosition_rad = 0.0;        // desired set position based on aruco position, in rad
  float previousSetPosition_rad = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
 
@@ -82,17 +82,17 @@ void setup() {
 
 void loop() {
   motorSetPosition_rad = arucoPosition * (PI / 2.0);  // determine set position in radians
-  
 
   // Determine if new aruco position
+  // if set position changes, reset integral error
   if (motorSetPosition_rad != previousSetPosition_rad) {
-    integralError = 0.0;  // if set position changes, reset integral error
+    integralError = 0.0;
     previousSetPosition_rad = motorSetPosition_rad;
   }
 
   int delta_t = (millis() - previousMillis);  // time since last PI controller execution
 
-  // Controll motor every 0.1 seconds to move as necessary
+  // Control motor every 0.1 seconds to move as necessary
   if (delta_t >= updateFrequency) {
 
     float fullRotation = 2.0 * PI;  // make calculations easier below
@@ -114,7 +114,7 @@ void loop() {
     // Calculate error based on shortest path to set position general calculations below
     // errorCCW = (setAngle - currentAngle + 180) % 360 - 180
     // errorCW = (currentAngle - setAngle + 180) % 360 - 180
-    // !NOTE! can swap CW and CCW to change sign associated with error (like when we add another wheel) 
+    // !NOTE! can swap CW and CCW variable names to change sign associated with error (like when we add another wheel) 
     // currently set as desired with motor shaft pointed at you
     float errorCW = fmod(motorSetPosition_rad - motorPosition_rad + PI, fullRotation) - PI;
     float errorCCW = fmod(motorPosition_rad - motorSetPosition_rad + PI, fullRotation) - PI;
@@ -127,6 +127,7 @@ void loop() {
     }
 
     // reset integralError if rotated past 180 degrees, changing the sign of the error term
+    // otherwise will have to overcome integral error buildup
     if (error * previousError < 0) {
       integralError = 0;
     }
@@ -136,7 +137,7 @@ void loop() {
     PI_pwmOut = (Kp * abs(error)) + (Ki * abs(integralError));  // PWM value to control motor speed
 
     // Make sure PWM value is within allowable range 0-255
-    // pwm values can be negative, use abs() to constrain to positive vals, direction already accounted for
+    // calculated pwm values can be negative, use abs() to constrain to positive vals, direction already accounted for
     PI_pwmOut = constrain(abs(PI_pwmOut), 0, 255);   
 
     // write PWM signal to motor to change speed
@@ -145,48 +146,24 @@ void loop() {
     // Determine if CCW or CW movement is shortest path to set point
     // *!* move inside where error is calculated? needs testing  
     if (error > 0) {
-      digitalWrite(M1DIR, HIGH);    // rotate CCW
+      digitalWrite(M1DIR, HIGH);     // rotate CCW
       motorDirection = 1;
     } else {
-      digitalWrite(M1DIR, LOW);     // rotate CW
+      digitalWrite(M1DIR, LOW);      // rotate CW
       motorDirection = -1;
     }
-
-    // *!* old method to determine direction, leaving here until certain it's not needed because the algorithm does work
-    // (destination - source + 360) % 360 > 180, move CCW
-    /*
-    if (fmod(motorSetPosition_rad - fmod(motorPosition_rad, fullRotation) + fullRotation, fullRotation) > PI) {
-      digitalWrite(M1DIR, HIGH);    // rotate CCW
-      motorDirection = 1;
-    } else {
-      digitalWrite(M1DIR, LOW);     // rotate CW
-      motorDirection = -1;
-    }*/
 
     // if motor reached setpoint, within threshold,turn off
     if (abs(error) <= motorSetPositionThreshold_rad) {
       digitalWrite(motorEnable, 0);  // turn motor OFF
-      integralError = 0.0;          // reset integral error
-      motorDirection = 0;           // motor not moving
+      integralError = 0.0;           // reset integral error
+      motorDirection = 0;            // motor not moving
     } else {
       digitalWrite(motorEnable, 1);  // keep/turn motor ON
     }
 
-    // set previous millis
-    // include here to ensure that time taken to execute code below is accounted for (might be longer than 100ms to print data)
+    // set previous millis to wait 0.1 seconds for next PI control loop
     previousMillis = millis();
-
-    // Test information print to serial port
-    // !*! delete/comment before demo
-    Serial.print(motorPosition_rad * 180.0 / PI);
-    Serial.print(", ");
-    Serial.print(motorSetPosition_rad * 180.0 / PI);
-    Serial.print(", E:");
-    Serial.print(integralError);
-    Serial.print(", D:");
-    Serial.print(motorDirection);
-    Serial.println();
-    
   }
 }
 
