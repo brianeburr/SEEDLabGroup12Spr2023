@@ -1,7 +1,62 @@
+## OpenCV Imports
 import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
 
+## I2C Imports
+import smbus
+import time, threading
+import board
+import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
+from struct import *
+
+## I2C Stuff (Hi Brian)
+angle = 0
+bus = smbus.SMBus(1)
+# ardAddress = 0x04
+lcd_cols = 16
+lcd_rows = 2
+i2c = board.I2C()
+
+lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_columns, lcd_rows)
+lcd.clear()
+lcd.color = [0, 0, 100]
+lcd.message = "System On"
+
+"""
+def sendSetpoint(setPoint):
+  bus.write_byte_data(ardAddress, 0, setPoint) #ard will recieve 2 bytes on I2C, first 0 as offset for interp, then setpoint 
+  
+def recieveCurrentPosition():
+  global currentPositionOfWheel
+  currentPosFloatBytes = bus.read_i2c_block_data(ardAddress, 1, 4) #send offset of 1 to prep for request, then ard will sent 4 bytes corresponding to float of position
+  currentPositionOfWheel = unpack('f', bytes(currentPosFloatBytes))[0]
+  print(currentPositionOfWheel)
+  
+def writeLCD():
+  global angle
+  global lcd
+  # I2C code from Mini Project
+  print("X")
+  lcd.clear()
+  message = "Setpoint: " + str(mostRecentDetectedQuad) + "\nPosition: "+ str(round(currentPositionOfWheel,2))
+  print(message)
+  lcd.message = message
+  print(mostRecentDetectedQuad)
+
+def handleI2C():
+  global angle
+  # I2C code from Mini Project
+  sendSetpoint(mostRecentDetectedQuad)
+  print("setpoint sent")
+  recieveCurrentPosition()
+  print("Position calc'd")
+  writeLCD()
+  print("lcd written")
+  threading.Timer(0.2, handleI2C).start()
+"""
+
+## OpenCV Angle Calculation
 def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=33):
   # markerLabel = 'Marker {} x-angle is {}\n'
   xOffset = 0
@@ -13,8 +68,8 @@ def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=33):
   # print(markerLabel.format(markID, xDeg))
   return xDeg
 
-
-## Add in camera calibration
+## OpenCV Camera Setup
+# Add in camera calibration
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
@@ -31,16 +86,14 @@ while True:
     break
   
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-  ## Introduce distortion protection
+  # Introduce distortion protection
   
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   if markIDs is None:
     # print('No markers found.\n')
   else:
     for ind in range(markIDs.size):
-      angleCalc(markIDs[ind], corners[ind][0])
-  
-  ## Space for I2C calls?
+      angle = angleCalc(markIDs[ind], corners[ind][0])
   
   # cv.imshow('Detected Markers', aruco.drawDetectedMarkers(frame, corners))
   if cv.waitKey(1) == ord('q'):
