@@ -26,30 +26,50 @@
  // pin connections
  const int encoderPinA = 2;   // CLK pin
  const int encoderPinB = 5;   // DAT pin
+
+ const int encoderPinC = 3;  // CLK encoder 2
+ const int encoderPinD = 6;  // DAT
+ 
  const int motorEnable = 4;   // Tri-state di sable both motor chanels when LOW (enable)
  const int M1DIR = 7;         // Motor polarity 1 (direction)
  const int M1PWM = 9;         // Motor volt 1 "speed"
+ const int M2DIR = 8;
+ const int M2PWM = 10;
  
  // setup encoder class to be used
- Encoder encoder(encoderPinA, encoderPinB);
+ Encoder encoderL(encoderPinA, encoderPinB);
+ Encoder encoderR(encoderPinC, encoderPinD);
 
  // PI controller variables
- float error = 0.0;                       // in rad
- float integralError = 0.0;               // in rad * seconds
- int PI_pwmOut = 0;                       // PWM control 0-255
+
  const int Kp = 98;                       // proportional control
  const float Ki = 7.22;                   // integrator control
  int updateFrequency = 100;               // 0.1 seconds per update
  const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
  unsigned long int previousMillis = 0;    // use to determine delta_t
+
+ //PI Left Motor
+ float errorL = 0.0;                       // in rad
+ float integralErrorL = 0.0;               // in rad * seconds
+ int PI_pwmOutL = 0;                       // PWM control 0-255
+
+float motorPosition_radL = 0.0;           // current position of motor in radians
+
+ //PI Right Motor
+ float errorR = 0.0;                       // in rad
+ float integralErrorR = 0.0;               // in rad * seconds
+ int PI_pwmOutR = 0;                       // PWM control 0-255
+ 
+ float motorPosition_radR = 0.0;           // current position of motor in radians
  
  // positional variables
- int motorDirection = 0;                  // test variable to determine motor direction: 1 CCW, -1 CW, 0 not moving
- float motorPosition_rad = 0.0;           // current position of motor in radians
+ 
  int arucoPosition = 2;                   // aruco position: 0,1,2, or 3
- float motorSetPosition_rad = 0.0;        // desired set position based on aruco position, in rad
+ float motorSetPosition_rad = 20.0;        // desired set position based on aruco position, in rad
  float previousSetPosition_rad = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
+
+const int maxSpeed = 128; //maximum motor speed 0-255
 
 //I2C stuff
 
@@ -69,6 +89,9 @@ void setup() {
   pinMode(motorEnable, OUTPUT);
   pinMode(M1DIR, OUTPUT);
   pinMode(M1PWM, OUTPUT);
+  pinMode(M2DIR, OUTPUT);
+  pinMode(M2PWM, OUTPUT);
+  
 
   Wire.begin(FOLLOWER_ADDRESS);
   Wire.onReceive(receiveData);
@@ -81,14 +104,6 @@ void setup() {
 }
 
 void loop() {
-  motorSetPosition_rad = arucoPosition * (PI / 2.0);  // determine set position in radians
-
-  // Determine if new aruco position
-  // if set position changes, reset integral error
-  if (motorSetPosition_rad != previousSetPosition_rad) {
-    integralError = 0.0;
-    previousSetPosition_rad = motorSetPosition_rad;
-  }
 
   int delta_t = (millis() - previousMillis);  // time since last PI controller execution
 
@@ -97,74 +112,78 @@ void loop() {
 
     float fullRotation = 2.0 * PI;  // make calculations easier below
 
-    // handle the case where encoder moves from pos to neg counts
-    // normalizes encoder counts to 0 - counts_per_rotation
-    // make sure motor position is within 0 - 359
-    int encoderReading = encoder.read();
-    while (encoderReading < 0) {
-        encoderReading += counts_per_rotation;
-    }
-    while (encoderReading >= counts_per_rotation) {
-        encoderReading -= counts_per_rotation;
-    }    
-
     // read current encoder position and convert to rad
-    motorPosition_rad = ((float) encoderReading * fullRotation) / (float) counts_per_rotation;
+    int encoderReadingL = encoderL.read();   
+    motorPosition_radL = ((float) encoderReadingL * fullRotation) / (float) counts_per_rotation;
+
+    // Other Motor
+    int encoderReadingR = -1 * encoderR.read();   
+    motorPosition_radR = ((float) encoderReadingR * fullRotation) / (float) counts_per_rotation;
+
+
     
-    // Calculate error based on shortest path to set position general calculations below
-    // errorCCW = (setAngle - currentAngle + 180) % 360 - 180
-    // errorCW = (currentAngle - setAngle + 180) % 360 - 180
-    // !NOTE! can swap CW and CCW variable names to change sign associated with error (like when we add another wheel) 
-    // currently set as desired with motor shaft pointed at you
-    float errorCW = fmod(motorSetPosition_rad - motorPosition_rad + PI, fullRotation) - PI;
-    float errorCCW = fmod(motorPosition_rad - motorSetPosition_rad + PI, fullRotation) - PI;
-    float previousError = error;
+    //Calculate Error and record
+    float errorL = motorSetPosition_rad - motorPosition_radL;
 
-    if (abs(errorCW) < abs(errorCCW)) {
-      error = -1 * errorCW;
-    } else {
-      error = errorCCW;
-    }
+    //Right
+    float errorR = motorSetPosition_rad - motorPosition_radR;
 
-    // reset integralError if rotated past 180 degrees, changing the sign of the error term
-    // otherwise will have to overcome integral error buildup
-    if (error * previousError < 0) {
-      integralError = 0;
-    }
+    
 
     // calculate integral error and determine PWM output to motor
-    integralError += error * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
-    PI_pwmOut = (Kp * abs(error)) + (Ki * abs(integralError));  // PWM value to control motor speed
+    integralErrorL += errorL * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
+    PI_pwmOutL = (Kp * errorL) + (Ki * integralErrorL);  // PWM value to control motor speed
+    
+    // Right
+    integralErrorR += errorR * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
+    PI_pwmOutR = (Kp * errorR) + (Ki * integralErrorR);  // PWM value to control motor speed
 
-    // Make sure PWM value is within allowable range 0-255
-    // calculated pwm values can be negative, use abs() to constrain to positive vals, direction already accounted for
-    PI_pwmOut = constrain(abs(PI_pwmOut), 0, 255);   
-
-    // write PWM signal to motor to change speed
-    analogWrite(M1PWM, PI_pwmOut);
-
-    // Determine if CCW or CW movement is shortest path to set point
-    // *!* move inside where error is calculated? needs testing  
-    if (error > 0) {
+    // Determine if to move forward or backwards 
+    if (PI_pwmOutL > 0) {
       digitalWrite(M1DIR, HIGH);     // rotate CCW
-      motorDirection = 1;
     } else {
       digitalWrite(M1DIR, LOW);      // rotate CW
-      motorDirection = -1;
     }
 
-    // if motor reached setpoint, within threshold,turn off
-    if (abs(error) <= motorSetPositionThreshold_rad) {
-      digitalWrite(motorEnable, 0);  // turn motor OFF
-      integralError = 0.0;           // reset integral error
-      motorDirection = 0;            // motor not moving
+    // Determine if to move forward or backwards 
+    if (PI_pwmOutR > 0) {
+      digitalWrite(M2DIR, HIGH);     // rotate CC
     } else {
-      digitalWrite(motorEnable, 1);  // keep/turn motor ON
+      digitalWrite(M2DIR, LOW);      // rotate CW
     }
+
+    //Write Motors
+    analogWrite(M2PWM, constrain(abs(PI_pwmOutR), 0, maxSpeed));
+    analogWrite(M1PWM, constrain(abs(PI_pwmOutL), 0, maxSpeed));
+
+
+    //if motor reached setpoint, within threshold,turn off
+    if (abs(errorL) <= motorSetPositionThreshold_rad) {
+      analogWrite(M1PWM, 0);
+      integralErrorL = 0.0;           // reset integral erro
+    }
+
+    //if motor reached setpoint, within threshold,turn off
+    if (abs(errorR) <= motorSetPositionThreshold_rad) {
+      analogWrite(M1PWM, 0);
+      integralErrorR = 0.0;           // reset integral erro
+    }
+
+     
 
     // set previous millis to wait 0.1 seconds for next PI control loop
     previousMillis = millis();
   }
+
+  if (Serial.available()) {
+    motorSetPosition_rad = Serial.parseFloat();
+  }
+
+  Serial.print("Left: ");
+  Serial.println(motorPosition_radL);
+  Serial.print("Right: ");
+  Serial.println(motorPosition_radR);
+  Serial.println("");
 }
 
 void receiveData(int byteCount) {
@@ -185,8 +204,7 @@ void receiveData(int byteCount) {
 
 void sendData() {
   I2C_Packet_t tempPacket;
-  tempPacket.floatNum = motorPosition_rad;
+  tempPacket.floatNum = motorPosition_radL;
   Wire.write(tempPacket.floatArrayNums, 4);
 
 }
-
