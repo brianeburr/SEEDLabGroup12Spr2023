@@ -12,6 +12,7 @@ from struct import *
 
 ## I2C Stuff (Hi Brian)
 angle = 0
+detected = False
 bus = smbus.SMBus(1)
 # ardAddress = 0x04
 lcd_cols = 16
@@ -90,10 +91,12 @@ while True:
   
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   if markIDs is None:
+    detected = False
     # print('No markers found.\n')
   else:
     for ind in range(markIDs.size):
       angle = angleCalc(markIDs[ind], corners[ind][0])
+    detected = True
   
   # cv.imshow('Detected Markers', aruco.drawDetectedMarkers(frame, corners))
   if cv.waitKey(1) == ord('q'):
