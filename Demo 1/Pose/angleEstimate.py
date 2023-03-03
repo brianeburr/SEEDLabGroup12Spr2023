@@ -57,6 +57,18 @@ def handleI2C():
   threading.Timer(0.2, handleI2C).start()
 """
 
+def handleI2C():
+  global angle
+  global detected
+  if detected:
+    lcd.clear()
+    message = "Marker Detected :)\n" + "Angle: " + str(round(angle,2))
+  else:
+    lcd.clear()
+    message = "Marker not detected\n:("
+  threading.Timer(0.2, handleI2C).start()
+
+
 ## OpenCV Angle Calculation
 def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=33):
   # markerLabel = 'Marker {} x-angle is {}\n'
@@ -71,6 +83,7 @@ def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=33):
 
 ## OpenCV Camera Setup
 # Add in camera calibration
+handleI2C()
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
