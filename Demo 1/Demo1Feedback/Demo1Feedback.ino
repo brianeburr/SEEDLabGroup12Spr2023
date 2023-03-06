@@ -42,32 +42,32 @@
 
  // PI controller variables
 
- const int Kp = 98;                       // proportional control
- const float Ki = 7.22;                   // integrator control
+ const int Kp = 3.42;                       // proportional control
+ const float Ki = 0.25;                 // integrator control
  int updateFrequency = 100;               // 0.1 seconds per update
  const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
  unsigned long int previousMillis = 0;    // use to determine delta_t
 
- //PI Left Motor
- float errorL = 0.0;                       // in rad
- float integralErrorL = 0.0;               // in rad * seconds
- int PI_pwmOutL = 0;                       // PWM control 0-255
+ //PI Forward
+ float errorF = 0.0;                       // in deg
+ float integralErrorF = 0.0;               // in deg * seconds
+ int PI_pwmOutF = 0;                       // PWM control 0-255
 
-float motorPosition_radL = 0.0;           // current position of motor in radians
+float motorPosition_degL = 0.0;           // current position of motor in degrees
 
- //PI Right Motor
- float errorR = 0.0;                       // in rad
- float integralErrorR = 0.0;               // in rad * seconds
- int PI_pwmOutR = 0;                       // PWM control 0-255
+ //Angle Correction
+ float errorA = 0.0;                       // in deg
+ float KpA = 10;
+ int PI_pwmOutA = 0;                       // PWM control 0-255
  
- float motorPosition_radR = 0.0;           // current position of motor in radians
+ float motorPosition_degR = 0.0;           // current position of motor in deg
  
  // positional variables
  
  int arucoPosition = 2;                   // aruco position: 0,1,2, or 3
- float motorSetPosition_rad = 20.0;        // desired set position based on aruco position, in rad
- float previousSetPosition_rad = 0.0;     // account for last aruco set position
- const float motorSetPositionThreshold_rad = 5.0 * (PI / 180.0);  // allowable angular difference from set point allowed
+ float motorSetPosition_deg = 720.0;        // desired set position based on aruco position, in deg
+ float previousSetPosition_deg = 0.0;     // account for last aruco set position
+ const float motorSetPositionThreshold_deg = 5.0;  // allowable angular difference from set point allowed
 
 const int maxSpeed = 128; //maximum motor speed 0-255
 
@@ -101,89 +101,74 @@ void setup() {
 
   // Set baud rate
   Serial.begin(115200);
+
+  delay(100);
+
+  Serial.println("forward,angle");
 }
 
 void loop() {
 
   int delta_t = (millis() - previousMillis);  // time since last PI controller execution
+  // set previous millis to wait 0.1 seconds for next PI control loop
+  
 
   // Control motor every 0.1 seconds to move as necessary
   if (delta_t >= updateFrequency) {
+    previousMillis = millis();
+    float fullRotation = 360.0;  // make calculations easier below
 
-    float fullRotation = 2.0 * PI;  // make calculations easier below
-
-    // read current encoder position and convert to rad
+    // read current encoder position and convert to deg
     int encoderReadingL = encoderL.read();   
-    motorPosition_radL = ((float) encoderReadingL * fullRotation) / (float) counts_per_rotation;
+    motorPosition_degL = ((float) encoderReadingL * fullRotation) / (float) counts_per_rotation;
 
     // Other Motor
     int encoderReadingR = -1 * encoderR.read();   
-    motorPosition_radR = ((float) encoderReadingR * fullRotation) / (float) counts_per_rotation;
-
+    motorPosition_degR = ((float) encoderReadingR * fullRotation) / (float) counts_per_rotation;
 
     
+    
     //Calculate Error and record
-    float errorL = motorSetPosition_rad - motorPosition_radL;
-
-    //Right
-    float errorR = motorSetPosition_rad - motorPosition_radR;
+    float errorF = motorSetPosition_deg - motorPosition_degL;
 
     
 
     // calculate integral error and determine PWM output to motor
-    integralErrorL += errorL * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
-    PI_pwmOutL = (Kp * errorL) + (Ki * integralErrorL);  // PWM value to control motor speed
+    integralErrorF += errorF * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives deg * sec
+    PI_pwmOutF = (Kp * errorF) + (Ki * integralErrorF);  // PWM value to control motor speed
+
+
+    //Angle Correction
+    float errorA = motorPosition_degL - motorPosition_degR;
+    PI_pwmOutA = KpA * errorA;
     
-    // Right
-    integralErrorR += errorR * ((float) delta_t / 1000.0);        // assuming delta_t is calculated in seconds, gives rad * sec
-    PI_pwmOutR = (Kp * errorR) + (Ki * integralErrorR);  // PWM value to control motor speed
 
-    // Determine if to move forward or backwards 
-    if (PI_pwmOutL > 0) {
-      digitalWrite(M1DIR, HIGH);     // rotate CCW
-    } else {
-      digitalWrite(M1DIR, LOW);      // rotate CW
-    }
-
-    // Determine if to move forward or backwards 
-    if (PI_pwmOutR > 0) {
-      digitalWrite(M2DIR, HIGH);     // rotate CC
-    } else {
-      digitalWrite(M2DIR, LOW);      // rotate CW
-    }
+    digitalWrite(M1DIR, HIGH);
+    digitalWrite(M2DIR, HIGH);
 
     //Write Motors
-    analogWrite(M2PWM, constrain(abs(PI_pwmOutR), 0, maxSpeed));
-    analogWrite(M1PWM, constrain(abs(PI_pwmOutL), 0, maxSpeed));
+    analogWrite(M2PWM, constrain(PI_pwmOutF + PI_pwmOutA, 0, maxSpeed));
+    analogWrite(M1PWM, constrain(PI_pwmOutF - PI_pwmOutA, 0, maxSpeed));
 
 
     //if motor reached setpoint, within threshold,turn off
-    if (abs(errorL) <= motorSetPositionThreshold_rad) {
+    if (abs(errorF) <= motorSetPositionThreshold_deg) {
       analogWrite(M1PWM, 0);
-      integralErrorL = 0.0;           // reset integral erro
-    }
+      analogWrite(M2PWM, 0);
+      integralErrorF = 0.0;           // reset integral erro
+    }  
 
-    //if motor reached setpoint, within threshold,turn off
-    if (abs(errorR) <= motorSetPositionThreshold_rad) {
-      analogWrite(M1PWM, 0);
-      integralErrorR = 0.0;           // reset integral erro
-    }
-
-     
-
-    // set previous millis to wait 0.1 seconds for next PI control loop
-    previousMillis = millis();
+    
   }
 
   if (Serial.available()) {
-    motorSetPosition_rad = Serial.parseFloat();
+    motorSetPosition_deg = Serial.parseFloat();
   }
 
-  Serial.print("Left: ");
-  Serial.println(motorPosition_radL);
-  Serial.print("Right: ");
-  Serial.println(motorPosition_radR);
-  Serial.println("");
+  
+  Serial.print(PI_pwmOutF);
+  Serial.print(",");
+  Serial.println(PI_pwmOutA);
 }
 
 void receiveData(int byteCount) {
@@ -204,7 +189,7 @@ void receiveData(int byteCount) {
 
 void sendData() {
   I2C_Packet_t tempPacket;
-  tempPacket.floatNum = motorPosition_radL;
+  tempPacket.floatNum = motorPosition_degL;
   Wire.write(tempPacket.floatArrayNums, 4);
 
 }
