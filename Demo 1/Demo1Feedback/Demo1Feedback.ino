@@ -42,8 +42,8 @@
 
  // PI controller variables
 
- const int Kp = 3.42;                       // proportional control
- const float Ki = 0.25;                 // integrator control
+ const int Kp = 1.0;                       // proportional control
+ const float Ki = 0;                 // integrator control
  int updateFrequency = 100;               // 0.1 seconds per update
  const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
  unsigned long int previousMillis = 0;    // use to determine delta_t
@@ -57,7 +57,7 @@ float motorPosition_degL = 0.0;           // current position of motor in degree
 
  //Angle Correction
  float errorA = 0.0;                       // in deg
- float KpA = 10;
+ float KpA = 0.5;
  int PI_pwmOutA = 0;                       // PWM control 0-255
  
  float motorPosition_degR = 0.0;           // current position of motor in deg
@@ -65,7 +65,8 @@ float motorPosition_degL = 0.0;           // current position of motor in degree
  // positional variables
  
  int arucoPosition = 2;                   // aruco position: 0,1,2, or 3
- float motorSetPosition_deg = 720.0;        // desired set position based on aruco position, in deg
+ float wheelCmm = (2*3.14159*7.75)/360;          //circumference of our wheels in cm/deg.
+ float motorSetPosition_deg = 100 / wheelCmm;        // desired set position based on aruco position, in deg
  float previousSetPosition_deg = 0.0;     // account for last aruco set position
  const float motorSetPositionThreshold_deg = 5.0;  // allowable angular difference from set point allowed
 
@@ -141,23 +142,34 @@ void loop() {
     //Angle Correction
     float errorA = motorPosition_degL - motorPosition_degR;
     PI_pwmOutA = KpA * errorA;
-    
 
-    digitalWrite(M1DIR, HIGH);
-    digitalWrite(M2DIR, HIGH);
+    int M2Out = PI_pwmOutF + PI_pwmOutA;
+    int M1Out = PI_pwmOutF - PI_pwmOutA;
+
+    if (M2Out > 0) {
+      digitalWrite(M2DIR, HIGH);
+    } else {
+      digitalWrite(M2DIR, LOW);
+    }
+
+    if (M1Out > 0) {
+      digitalWrite(M1DIR, HIGH);
+    } else {
+      digitalWrite(M1DIR, LOW);
+    }
 
     //Write Motors
-    analogWrite(M2PWM, constrain(PI_pwmOutF + PI_pwmOutA, 0, maxSpeed));
-    analogWrite(M1PWM, constrain(PI_pwmOutF - PI_pwmOutA, 0, maxSpeed));
+    analogWrite(M2PWM, constrain(abs(M2Out), 0, maxSpeed));
+    analogWrite(M1PWM, constrain(abs(M1Out), 0, maxSpeed));
 
-
+    /*
     //if motor reached setpoint, within threshold,turn off
-    if (abs(errorF) <= motorSetPositionThreshold_deg) {
+    if ((PI_pwmOutF < 5)&&(PI_pwmOutA < 5)) {
       analogWrite(M1PWM, 0);
       analogWrite(M2PWM, 0);
       integralErrorF = 0.0;           // reset integral erro
     }  
-
+    */
     
   }
 
