@@ -78,9 +78,9 @@ void loop() {
 
   // execute custom sequence of forward and rotational movements
   if (customMovement) {
-    rotateBot(90);
+    Serial.println(rotateBot(90));
     delay(1000);
-    forwardBot(91.4);
+    forwardBot(304.8);
     Serial.println("Done");
     customMovement = false;
   }
@@ -88,14 +88,14 @@ void loop() {
   //fsm implementation? maybe for later demo?
 }
 
-void forwardBot(float setCmForward) {
+float forwardBot(float x) {
 
   encoderL.write(0);
   encoderR.write(0);
 
   // PD controller variables
-  const float Kp = 2.8;                       // proportional control
-  const float Kd = 111.7;                      //derivative control ms*PWM/degree
+  const float Kp = 1.8;                       // proportional control
+  const float Kd = 20.0;                      //derivative control ms*PWM/degree
   int updateFrequency = 100;               // 0.1 seconds per update
   const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
   unsigned long int previousMillis = 0;    // use to determine delta_t
@@ -107,21 +107,23 @@ void forwardBot(float setCmForward) {
   
   //Angle Correction
   float errorA = 0.0;                       // in deg
-  float KpA = 1.0;
-  float KiA = 0.1*KpA;
-  float angleIntegral = 0.0;
+  float previousErrorA = 0.0;
   int PI_pwmOutA = 0;                       // PWM control 0-255
    
   const float endThresh = 5.0;  // allowable angular difference from set point allowed
   
   // reset motor position vals
-  const float wheelCmm = (3.14159*7.75)/360;
-  float motorSetPosition_deg = setCmForward / wheelCmm;
+  const float wheelCmm = (3.14159*7.6)/360;
+  float forwardSetPosition_deg = x / wheelCmm;
+
+  const float rotationConst = 4.85;
+  float angleSetPosition_deg = 0;
+  
   motorPosition_degL = 0.0;           // current position of motor in degrees
   motorPosition_degR = 0.0;           // current position of motor in degrees
 
   int count = 0;
-  while (count < 20) {
+  while (count < 10) {
     int delta_t = (millis() - previousMillis);  // time since last PI controller execution
     // set previous millis to wait 0.1 seconds for next PI control loop
   
@@ -132,27 +134,32 @@ void forwardBot(float setCmForward) {
       
       // read current encoder position and convert to deg
       int encoderReadingL = encoderL.read();
-      int encoderReadingR = -1 * encoderR.read();   
+      int encoderReadingR = -1 * encoderR.read();
       motorPosition_degL = ((float) encoderReadingL * fullRotation) / (float) counts_per_rotation;    
       motorPosition_degR = ((float) encoderReadingR * fullRotation) / (float) counts_per_rotation;
-  
+
+      //-----------FORWARD------------------
       //calculate error
       previousErrorF = errorF;
-      errorF = motorSetPosition_deg - (motorPosition_degL + motorPosition_degR);
-      
+      errorF = forwardSetPosition_deg - (motorPosition_degL + motorPosition_degR);
       
       // calculate derivative error and determine PWM output to motor
-      float errorDx = (errorF - previousErrorF) / (float) delta_t;
-      PI_pwmOutF = (Kp * errorF) + (Kd * errorDx);  // PWM value to control motor speed
-  
-      //Angle Correction
-      errorA = motorPosition_degL - motorPosition_degR;
-      angleIntegral += errorA * delta_t;
-      angleIntegral = constrain(angleIntegral, -50, 50); //prevent integrator windup
-      PI_pwmOutA = (KpA * errorA) + (KiA * angleIntegral);
-  
-      int M2Out = PI_pwmOutF + PI_pwmOutA;
-      int M1Out = PI_pwmOutF - PI_pwmOutA;
+      float errorDxF = (errorF - previousErrorF) / (float) delta_t;
+      PI_pwmOutF = (Kp * errorF) + (Kd * errorDxF);  // PWM value to control motor speed
+
+      //----------ANGLE-----------------
+      //calculate error
+      previousErrorA = errorA;
+      errorA = angleSetPosition_deg - (motorPosition_degL - motorPosition_degR);
+      
+      // calculate derivative error and determine PWM output to motor
+      float errorDxA = (errorA - previousErrorA) / (float) delta_t;
+      PI_pwmOutA = (Kp * errorA) + (Kd * errorDxA);  // PWM value to control motor speed
+
+
+      //--------WRITING------------
+      int M2Out = PI_pwmOutF - PI_pwmOutA;
+      int M1Out = PI_pwmOutF + PI_pwmOutA;
   
       if (M2Out > 0) {
         digitalWrite(M2DIR, HIGH);
@@ -170,7 +177,7 @@ void forwardBot(float setCmForward) {
       analogWrite(M2PWM, constrain(abs(M2Out), 0, maxSpeed));
       analogWrite(M1PWM, constrain(abs(M1Out), 0, maxSpeed));
 
-      if (errorF < endThresh) {
+      if ((errorF < endThresh)) {
         count++;
       }
       
@@ -179,18 +186,18 @@ void forwardBot(float setCmForward) {
   } // end while loop
   analogWrite(M1PWM, 0);
   analogWrite(M2PWM, 0);
-  return; // return to main loop
+  return errorA; // return to main loop
 
 } // end function
 
-void rotateBot(float setDegreesRot) {
+float rotateBot(float phi) {
 
   encoderL.write(0);
   encoderR.write(0);
 
   // PD controller variables
-  const float Kp = 2.8;                       // proportional control
-  const float Kd = 111.7;                      //derivative control ms*PWM/degree
+  const float Kp = 1.8;                       // proportional control
+  const float Kd = 20.0;                      //derivative control ms*PWM/degree
   int updateFrequency = 100;               // 0.1 seconds per update
   const int counts_per_rotation = 3200;    // the motor I took home was 3,200 but it should be 1,600 counts?
   unsigned long int previousMillis = 0;    // use to determine delta_t
@@ -202,21 +209,23 @@ void rotateBot(float setDegreesRot) {
   
   //Angle Correction
   float errorA = 0.0;                       // in deg
-  float KpA = 1.0;
-  float KiA = 0.1*KpA;
-  float angleIntegral = 0.0;
+  float previousErrorA = 0.0;
   int PI_pwmOutA = 0;                       // PWM control 0-255
    
   const float endThresh = 5.0;  // allowable angular difference from set point allowed
   
   // reset motor position vals
-  const float rotationConst = 5.0;
-  float motorSetPosition_deg = setDegreesRot * rotationConst;
+  const float wheelCmm = (3.14159*7.6)/360;
+  float forwardSetPosition_deg = 0.0;
+
+  const float rotationConst = 4.85;
+  float angleSetPosition_deg = phi * rotationConst;
+  
   motorPosition_degL = 0.0;           // current position of motor in degrees
   motorPosition_degR = 0.0;           // current position of motor in degrees
 
   int count = 0;
-  while (count < 20) {
+  while (count < 10) {
     int delta_t = (millis() - previousMillis);  // time since last PI controller execution
     // set previous millis to wait 0.1 seconds for next PI control loop
   
@@ -227,27 +236,32 @@ void rotateBot(float setDegreesRot) {
       
       // read current encoder position and convert to deg
       int encoderReadingL = encoderL.read();
-      int encoderReadingR = -1 * encoderR.read();   
+      int encoderReadingR = -1 * encoderR.read();
       motorPosition_degL = ((float) encoderReadingL * fullRotation) / (float) counts_per_rotation;    
       motorPosition_degR = ((float) encoderReadingR * fullRotation) / (float) counts_per_rotation;
-  
+
+      //-----------FORWARD------------------
       //calculate error
       previousErrorF = errorF;
-      errorF = motorSetPosition_deg - (motorPosition_degL - motorPosition_degR);
-      
+      errorF = forwardSetPosition_deg - (motorPosition_degL + motorPosition_degR);
       
       // calculate derivative error and determine PWM output to motor
-      float errorDx = (errorF - previousErrorF) / (float) delta_t;
-      PI_pwmOutF = (Kp * errorF) + (Kd * errorDx);  // PWM value to control motor speed
-  
-      //Angle Correction
-      errorA = motorPosition_degL + motorPosition_degR;
-      angleIntegral += errorA * delta_t;
-      angleIntegral = constrain(angleIntegral, -50, 50); //prevent integrator windup
-      PI_pwmOutA = (KpA * errorA) + (KiA * angleIntegral);
-  
-      int M2Out = -1*PI_pwmOutF - PI_pwmOutA;
-      int M1Out = PI_pwmOutF - PI_pwmOutA;
+      float errorDxF = (errorF - previousErrorF) / (float) delta_t;
+      PI_pwmOutF = (Kp * errorF) + (Kd * errorDxF);  // PWM value to control motor speed
+
+      //----------ANGLE-----------------
+      //calculate error
+      previousErrorA = errorA;
+      errorA = angleSetPosition_deg - (motorPosition_degL - motorPosition_degR);
+      
+      // calculate derivative error and determine PWM output to motor
+      float errorDxA = (errorA - previousErrorA) / (float) delta_t;
+      PI_pwmOutA = (Kp * errorA) + (Kd * errorDxA);  // PWM value to control motor speed
+
+
+      //--------WRITING------------
+      int M2Out = PI_pwmOutF - PI_pwmOutA;
+      int M1Out = PI_pwmOutF + PI_pwmOutA;
   
       if (M2Out > 0) {
         digitalWrite(M2DIR, HIGH);
@@ -265,7 +279,7 @@ void rotateBot(float setDegreesRot) {
       analogWrite(M2PWM, constrain(abs(M2Out), 0, maxSpeed));
       analogWrite(M1PWM, constrain(abs(M1Out), 0, maxSpeed));
 
-      if (errorF < endThresh) {
+      if ((errorA < endThresh)) {
         count++;
       }
       
@@ -274,6 +288,6 @@ void rotateBot(float setDegreesRot) {
   } // end while loop
   analogWrite(M1PWM, 0);
   analogWrite(M2PWM, 0);
-  return; // return to main loop
+  return errorA; // return to main loop
 
 } // end function
