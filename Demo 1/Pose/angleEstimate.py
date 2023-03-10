@@ -3,6 +3,16 @@ import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
 
+camMtx = np.array([[1.90620050e+03, 0.00000000e+00, 9.76416431e+02],
+ [0.00000000e+00, 1.89789988e+03, 6.10584427e+02],
+ [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+
+dist = np.array([[2.07322280e-02, 2.61188854e-01, 1.39986241e-03, 7.96055811e-03,
+ 5.19695008e+00]])
+
+h,w = (480,640)
+newCamMtx, roi = cv.getOptimalNewCameraMatrix(camMtx,dist,(w,h),1,(w,h))
+
 ## I2C Imports
 import smbus
 import time, threading
@@ -19,7 +29,7 @@ lcd_cols = 16
 lcd_rows = 2
 i2c = board.I2C()
 
-lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_columns, lcd_rows)
+lcd = character_lcd.Character_LCD_RGB_I2C(i2c, lcd_cols, lcd_rows)
 lcd.clear()
 lcd.color = [0, 0, 100]
 lcd.message = "System On"
@@ -70,20 +80,20 @@ def handleI2C():
 
 
 ## OpenCV Angle Calculation
-def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=33):
-  # markerLabel = 'Marker {} x-angle is {}\n'
+def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=25.2):
+  #markerLabel = 'Marker {} x-angle is {}\n'
   xOffset = 0
   
   for ind in range(4):
     xOffset += hfResX - corners[ind][0]
   xDeg = hFov * (xOffset / 4) / hfResX
   
-  # print(markerLabel.format(markID, xDeg))
+  #print(markerLabel.format(markID, xDeg))
   return xDeg
 
 ## OpenCV Camera Setup
 # Add in camera calibration
-handleI2C()
+"""handleI2C()"""
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
@@ -100,18 +110,20 @@ while True:
     break
   
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-  # Introduce distortion protection
+  #grayed = cv.undistort(grayed, camMtx, dist, None, newCamMtx)
+  #x,y,w,h = roi
+  #grayed = grayed[y:y+h, x:x+w]
   
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   if markIDs is None:
     detected = False
-    # print('No markers found.\n')
+    #print('No markers found.\n')
   else:
     for ind in range(markIDs.size):
       angle = angleCalc(markIDs[ind], corners[ind][0])
     detected = True
   
-  # cv.imshow('Detected Markers', aruco.drawDetectedMarkers(frame, corners))
+  #cv.imshow('Detected Markers', aruco.drawDetectedMarkers(grayed, corners))
   if cv.waitKey(1) == ord('q'):
     break
 
