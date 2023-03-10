@@ -93,7 +93,7 @@ def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=25.2):
 
 ## OpenCV Camera Setup
 # Add in camera calibration
-"""handleI2C()"""
+handleI2C()
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
