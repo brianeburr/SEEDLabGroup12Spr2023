@@ -72,17 +72,21 @@ def handleI2C():
   global detected
   if detected:
     lcd.clear()
-    message = "Marker Detected :)\n" + "Angle: " + str(round(angle,2))
+    temp = "Marker Detected :)\n" + "Angle: " + str(round(angle,2))
+    lcd.message = temp
+    
   else:
     lcd.clear()
-    message = "Marker not detected\n:("
+    temp = "Marker not detected\n:("
+    lcd.message = temp
   threading.Timer(0.2, handleI2C).start()
 
 
 ## OpenCV Angle Calculation
-def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=25.2):
+# hFov previously 25.2
+def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=29.26):
   #markerLabel = 'Marker {} x-angle is {}\n'
-  xOffset = 0
+  xOffset = -2
   
   for ind in range(4):
     xOffset += hfResX - corners[ind][0]
@@ -123,7 +127,7 @@ while True:
       angle = angleCalc(markIDs[ind], corners[ind][0])
     detected = True
   
-  #cv.imshow('Detected Markers', aruco.drawDetectedMarkers(grayed, corners))
+  cv.imshow('Detected Markers', aruco.drawDetectedMarkers(grayed, corners))
   if cv.waitKey(1) == ord('q'):
     break
 
