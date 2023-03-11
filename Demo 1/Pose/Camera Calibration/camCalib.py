@@ -19,7 +19,7 @@ objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 prev_img_shape = None
  
 # Extracting path of individual image stored in a given directory
-images = glob.glob('./*.png')
+images = glob.glob('./checker*.png')
 for fname in images:
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -42,7 +42,7 @@ for fname in images:
         # Draw and display the corners
         img = cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
      
-    cv2.imshow(fname,img)
+    cv2.imshow("checker",img)
     cv2.waitKey(0)
  
 cv2.destroyAllWindows()
@@ -58,10 +58,6 @@ detected corners (imgpoints)
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
  
 print("Camera matrix : \n")
-print(mtx)
+print(np.array(mtx))
 print("dist : \n")
-print(dist)
-print("rvecs : \n")
-print(rvecs)
-print("tvecs : \n")
-print(tvecs)
+print(np.array(dist))

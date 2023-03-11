@@ -3,15 +3,20 @@ import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
 
-camMtx = np.array([[1.90620050e+03, 0.00000000e+00, 9.76416431e+02],
- [0.00000000e+00, 1.89789988e+03, 6.10584427e+02],
- [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+"""camMtx = np.array([[ 605.21881298, 0,            304.72314493],
+                   [ 0,            602.70534241, 222.09439201],
+                   [ 0,            0,            1           ]])"""
 
-dist = np.array([[2.07322280e-02, 2.61188854e-01, 1.39986241e-03, 7.96055811e-03,
- 5.19695008e+00]])
+camMtx = np.array([[ 605.21881298, 0,            304.72314493],
+                   [ 0,            602.70534241, 222.09439201],
+                   [ 0,            0,            1           ]])
+
+dist = np.array([[ 0, 0, 0, 0, 0 ]])
+# radial^2, radial^4, tangentA, tangentB, radial^6
 
 h,w = (480,640)
 newCamMtx, roi = cv.getOptimalNewCameraMatrix(camMtx,dist,(w,h),1,(w,h))
+x,y,w,h = roi
 
 ## I2C Imports
 import smbus
@@ -84,19 +89,19 @@ def handleI2C():
 
 ## OpenCV Angle Calculation
 # hFov previously 25.2
+# With excel, found to be 29.26 w/ xDeg = - 0.5
 def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=29.26):
-  #markerLabel = 'Marker {} x-angle is {}\n'
-  xOffset = -2
+  markerLabel = 'Marker {} x-angle is {}\n'
+  xOffset = 0
   
   for ind in range(4):
     xOffset += hfResX - corners[ind][0]
-  xDeg = hFov * (xOffset / 4) / hfResX
+  xDeg = (hFov * (xOffset / 4) / hfResX) - 0.5
   
-  #print(markerLabel.format(markID, xDeg))
+  print(markerLabel.format(markID, xDeg))
   return xDeg
 
 ## OpenCV Camera Setup
-# Add in camera calibration
 handleI2C()
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
@@ -114,9 +119,8 @@ while True:
     break
   
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-  #grayed = cv.undistort(grayed, camMtx, dist, None, newCamMtx)
-  #x,y,w,h = roi
-  #grayed = grayed[y:y+h, x:x+w]
+  grayed = cv.undistort(grayed, camMtx, dist, None, newCamMtx)
+  grayed = grayed[y:y+h, x:x+w]
   
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   if markIDs is None:
