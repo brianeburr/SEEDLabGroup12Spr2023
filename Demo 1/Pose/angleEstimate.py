@@ -12,6 +12,10 @@ camMtx = np.array([[ 605.21881298, 0,            304.72314493],
                    [ 0,            0,            1           ]])
 
 dist = np.array([[ 0, 0, 0, 0, 0 ]])
+
+"""dist = np.array([[  5.71005717e-02,  -6.19737430e-02,  -7.16729572e-03,
+  5.17895277e-04,  -7.38185549e-01]])"""
+
 # radial^2, radial^4, tangentA, tangentB, radial^6
 
 h,w = (480,640)
@@ -120,7 +124,7 @@ while True:
   
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
   grayed = cv.undistort(grayed, camMtx, dist, None, newCamMtx)
-  grayed = grayed[y:y+h, x:x+w]
+  #grayed = grayed[y:y+h, x:x+w]
   
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   if markIDs is None:
