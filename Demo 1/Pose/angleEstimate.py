@@ -3,6 +3,7 @@ import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
 
+# Some included camera matrices for possible calibration implementation
 """camMtx = np.array([[ 605.21881298, 0,            304.72314493],
                    [ 0,            602.70534241, 222.09439201],
                    [ 0,            0,            1           ]])"""
@@ -106,13 +107,14 @@ def angleCalc(markID, corners, hfResX=320, hfResY=240, hFov=29.26):
   return xDeg
 
 ## OpenCV Camera Setup
-handleI2C()
+handleI2C() # Starts I2C threading
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
   exit()
 print('Opening video feed. Press \'q\' to exit')
 
+# Sets up ArUco parameters for later
 arucoDict = aruco.Dictionary_get(aruco.DICT_6X6_250)
 params = aruco.DetectorParameters_create()
 
@@ -122,6 +124,7 @@ while True:
     print('Err: cannot receive frame. Exiting...\n')
     break
   
+  # Some image transformations for feeding into the detectMarkers function
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
   grayed = cv.undistort(grayed, camMtx, dist, None, newCamMtx)
   #grayed = grayed[y:y+h, x:x+w]
@@ -132,6 +135,7 @@ while True:
     #print('No markers found.\n')
   else:
     for ind in range(markIDs.size):
+      # Sends the detected markers to have their angles calculated and returned to a global variable
       angle = angleCalc(markIDs[ind], corners[ind][0])
     detected = True
   
