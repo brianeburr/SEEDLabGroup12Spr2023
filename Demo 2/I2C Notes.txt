@@ -1,0 +1,21 @@
+Finite State Machine is set up to be concurrent between both RPi and Arduino. Both will init into idle, then rpi will send signal to put arduino into scan mode. In scan mode, rpi will be looking for aruco marker. Once marker identified, update state to pause on arduino. Then rpi calculates angle error and distance error. Rpi sends angle error over I2C. Then puts in adjust state. Pi waits for busy signal to go high, then check angle error again. 
+	- If angle within threshold, move to MOVE state
+	- If angle out of threshold, send another angle error and adjust state
+Once ready for move state, send distance error, then signal for MOVE state. Once busy signal goes high, assume on point, send stop state signal.
+
+Busy signal: if high, ready for additional signal/in pause/stop/idle/scan. In adjust and move states, busy is 0
+
+
+
+For write bytes: 
+
+- always write 4 bytes corresponding to float data type, arduino recieve and interprets using union data structure
+Offsets to interpret behavior of Wire.onreceive():
+
+	- 0, put in pause mode
+	- 1, put in scan mode
+	- 2, update angle error, follow with 4 bytes of signed float for angle error
+	- 3, update distance error, follow with 4 bytes of d error
+	- 4, put in angleAdjust/ADJUST mode
+	- 5, put in distanceAdjust/MOVE mode
+	- 6, put in STOP state, final state
