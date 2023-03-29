@@ -51,6 +51,8 @@ const int maxSpeed = 128;                 // limit maximum motor speed
 float motorPosition_degL = 0.0;           // current position of motor in degrees
 float motorPosition_degR = 0.0;           // current position of motor in degrees
 
+
+
 void setup() {
 
   // assign digital motor pins as outputs
@@ -79,8 +81,8 @@ void loop() {
   // execute custom sequence of forward and rotational movements
   if (customMovement) {
     Serial.println(rotateBot(90));
-    delay(1000);
-    forwardBot(304.8);
+    delay(200);
+    //forwardBot(213.36);
     Serial.println("Done");
     customMovement = false;
   }
@@ -156,11 +158,24 @@ float forwardBot(float x) {
       float errorDxA = (errorA - previousErrorA) / (float) delta_t;
       PI_pwmOutA = (Kp * errorA) + (Kd * errorDxA);  // PWM value to control motor speed
 
+      // Encoder count check derivative contorl
+      float errorCounts = motorPosition_degL - motorPosition_degR;
+      float PI_pwmOutV = Kd * errorCounts;
+
 
       //--------WRITING------------
       int M2Out = PI_pwmOutF - PI_pwmOutA;
       int M1Out = PI_pwmOutF + PI_pwmOutA;
-  
+
+      /*
+      if (motorPosition_degL > motorPosition_degR + 5) {
+        M1Out = M1Out + PI_pwmOutV;      
+      } else if (motorPosition_degR > motorPosition_degL + 5) {
+        M2Out = M2Out + PI_pwmOutV;
+      }
+      */
+      
+      
       if (M2Out > 0) {
         digitalWrite(M2DIR, HIGH);
       } else {
