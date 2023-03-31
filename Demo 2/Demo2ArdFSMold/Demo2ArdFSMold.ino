@@ -230,14 +230,7 @@ void receiveData(int byteCount) {
     break;
     case 2:
       //update angle error, figure out typdef union stuff
-    break;
-    case 3:
-    //update distance error
-    break;
-    case 4:
-    {
-      currentState = ADJUST; //angle error fix
-
+          {
       I2C_Packet_t pack;
       pack.floatArrayNums[0] = data[1];
       pack.floatArrayNums[1] = data[2];
@@ -246,9 +239,8 @@ void receiveData(int byteCount) {
       angleError = pack.floatNum;
     }
     break;
-    case 5:
-    {
-      currentState = MOVE; // distance error fix
+    case 3:
+      {
       I2C_Packet_t pack;
       pack.floatArrayNums[0] = data[1];
       pack.floatArrayNums[1] = data[2];
@@ -256,6 +248,13 @@ void receiveData(int byteCount) {
       pack.floatArrayNums[3] = data[4];
       distanceError = pack.floatNum;
     }
+    //update distance error
+    break;
+    case 4:
+      currentState = ADJUST; //angle error fix
+    break;
+    case 5:
+      currentState = MOVE; // distance error fix
     break;
     case 6:
       currentState = STOP; // execution finished
