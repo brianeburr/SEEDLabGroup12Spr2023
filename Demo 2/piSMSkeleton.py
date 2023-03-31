@@ -51,6 +51,10 @@ def distMeas():
   #return move
   pass
 
+def I2CMessage(offset, float):
+  #general I2C message to send
+  pass
+
 
 ## OpenCV Camera Instantiation (Prelim)
 # Needs tweaking for different possible camera setups
