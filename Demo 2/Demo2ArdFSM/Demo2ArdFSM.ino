@@ -40,7 +40,7 @@ float motorPosition_degR = 0.0;           // current position of motor in degree
 const int maxSpeed = 70;
 
 #define FOLLOWER_ADDRESS 0x04
-int data[32]; // buffer to store i2c message into
+byte data[32]; // buffer to store i2c message into
 
 typedef union I2C_Packet_t {
   byte floatArrayNums[4];
@@ -235,10 +235,27 @@ void receiveData(int byteCount) {
     //update distance error
     break;
     case 4:
+    {
       currentState = ADJUST; //angle error fix
+
+      I2C_Packet_t pack;
+      pack.floatArrayNums[0] = data[1];
+      pack.floatArrayNums[1] = data[2];
+      pack.floatArrayNums[2] = data[3];
+      pack.floatArrayNums[3] = data[4];
+      angleError = pack.floatNum;
+    }
     break;
     case 5:
+    {
       currentState = MOVE; // distance error fix
+      I2C_Packet_t pack;
+      pack.floatArrayNums[0] = data[1];
+      pack.floatArrayNums[1] = data[2];
+      pack.floatArrayNums[2] = data[3];
+      pack.floatArrayNums[3] = data[4];
+      distanceError = pack.floatNum;
+    }
     break;
     case 6:
       currentState = STOP; // execution finished
@@ -246,3 +263,5 @@ void receiveData(int byteCount) {
 
   }
 }
+
+
