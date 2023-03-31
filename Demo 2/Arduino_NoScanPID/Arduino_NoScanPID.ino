@@ -103,6 +103,8 @@ void setup() {
   Serial.begin(115200);
 
   delay(5000);
+  Wire.begin(FOLLOWER_ADDRESS);
+  Wire.onReceive(receiveData);
 
   Serial.println("init...");
 }
@@ -139,6 +141,7 @@ void loop() {
       rotateBot(angleError);
       
       currentState = PAUSE;
+      digitalWrite(BUSY, 1);
     break;
     
     case MOVE:
@@ -150,6 +153,7 @@ void loop() {
       forwardBot(distanceError);
       
       currentState = PAUSE;
+      digitalWrite(BUSY, 1);
     break;
     case IDLE:
     case STOP:
