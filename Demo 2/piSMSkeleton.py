@@ -2,6 +2,7 @@
 import numpy as np
 import cv2 as cv
 import cv2.aruco as aruco
+from enum import Enum
 
 
 ## I2C Imports
@@ -50,7 +51,14 @@ def I2CMessage(offset, float):
 
 ## OpenCV Camera Instantiation (Prelim)
 # Needs tweaking for different possible camera setups
-camState = 0
+class state(Enum):
+  IDLE = 0
+  SCAN = 1
+  ADJUST = 2
+  DISTANCE = 3
+  MOVE = 4
+
+camState = IDLE
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
@@ -71,22 +79,23 @@ while True:
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   
   
-  if(camState == 0): # Idle
+  if(camState == IDLE): # Idle
     print('Idle state, no action') # Needs a short bit of code for idle state
-  elif(camState == 1): # Scan
+  elif(camState == SCAN): # Scan
     if(markIDs is not None):
-      camState = 2
+      camState = ADJUST
       # Send stop command to robot
       # Small delay signal to account for robot stop delay
-  elif(camState == 2): # Adjust (Camera Angle)
-    camState, angle = camState(markIDs[0], corners[0][0])
-    if(camState == 3):
+  elif(camState == ADJUST): # Adjust (Camera Angle)
+    camState, angle = angleMeas(markIDs[0], corners[0][0])
+    if(camState == ADJUST): # If the program sent back to adjust
+      pass
       # Send angle to robot over I2C
     # If state is distMeas, no I2C should be needed
-  elif(camState == 3): # Distance
-    dist = camState(markID[0], corners[0][0])
+  elif(camState == DISTANCE): # Distance
+    dist = distMeas(markID[0], corners[0][0])
     # Send distance to Arduino
-    camState = 4
+    camState = MOVE
   else: # Move
     print('Move state, no action')
   
