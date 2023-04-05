@@ -495,6 +495,7 @@ void receiveData(int byteCount) {
       pack.floatArrayNums[2] = data[3];
       pack.floatArrayNums[3] = data[4];
       angleError = pack.floatNum;
+      print(angleError);
     }
     break;
     case 3:
