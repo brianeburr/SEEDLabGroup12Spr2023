@@ -4,20 +4,31 @@ import cv2 as cv
 import cv2.aruco as aruco
 from enum import Enum
 from time import sleep
+import RPi.GPIO as GPIO
 
 ## I2C Imports
 import smbus
 import board
 import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
-from struct import *
+import struct
 
 bus = smbus.SMBus(1)
 ardAddress = 0x04 #arduinos initialized I2C address
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(4,GPIO.IN)
 
 #####################################################################################
 ## Pi State Functions
 
+angle = 0
+angleOffCounter = 0
+adjFail = False
+
 def angleMeas(markID, corners, hfResX=320, hFov=29.26):
+  global adjFail
+  #angleThresh = 12 # For speed!!!
+  angleThresh = 2 # For precision
+  
   markerLabel = 'Marker {} x-angle is {}\n'
   xOffset = 0
   
@@ -26,12 +37,18 @@ def angleMeas(markID, corners, hfResX=320, hFov=29.26):
   xDeg = (hFov * (xOffset / 4) / hfResX) - 0.5
   
   print(markerLabel.format(markID, xDeg))
-  #return xDeg
-  
-  if(-5 <= xDeg <= 5):
-    return 2, xDeg
+
+  if(abs(angle - xDeg) > 2):
+    adjFail = False
   else:
-    return 3, xDeg
+    adjFail = True
+
+  if(abs(xDeg) < angleThresh):
+    print('Moving to DISTANCE')
+    return state.DISTANCE, xDeg
+  else:
+    print('Recurse to ADJUST')
+    return state.ADJUST, xDeg
 
 
 def distMeas(markID, corners, resY=480, fovY=48):
@@ -41,7 +58,7 @@ def distMeas(markID, corners, resY=480, fovY=48):
   for ind in range(4):
     yOffset += resY - corners[ind][1]
   yOffset = yOffset / 4
-  dist = ((yOffset - 560)/(-636)) ** -1.234 # Connor's distance regression
+  dist = ((yOffset - 560)/(-636)) ** -1.35 # Connor's distance regression
   
   print(markerLabel.format(markID, dist))
   return dist
@@ -50,23 +67,24 @@ def distMeas(markID, corners, resY=480, fovY=48):
 def I2CMessage(offset, floatNum):
   #general I2C message to send
     #struct.unpack("f", struct.pack("f", 0.00582811585976)) might be useful if datatypes messed up
-    print(type(floatNum))
+    #print(floatNum)
+    #print(offset)
     ba = list(bytes(struct.pack('<f', floatNum)))
 
-    print(ba)
+    #print(ba)
     bus.write_block_data(ardAddress, offset, ba)
     pass
 
 
 def rotate(degrees):
     I2CMessage(2, degrees)
-    sleep(0.1) #perhaps unnecessary
+    #sleep(0.1) #perhaps unnecessary
     I2CMessage(4,0)
     pass
 
 def moveForward(cm):
     I2CMessage(3, cm)
-    sleep(0.1) #perhaps unnecessary
+    #sleep(0.1) #perhaps unnecessary
     I2CMessage(5,0)
     pass
 
@@ -80,7 +98,8 @@ class state(Enum):
   DISTANCE = 3
   MOVE = 4
 
-camState = IDLE
+camState = state.IDLE
+#adjCount = 0
 cap = cv.VideoCapture(-1)
 if not cap.isOpened():
   print('Err: cannot open camera\n')
@@ -99,39 +118,45 @@ while True:
   # Image transformations for the detectMarkers function
   grayed = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
+
+  # if busy
+  #continue
+  if (GPIO.input(4) == 0):
+    #print("busy")
+    continue
   
-  
-  if(camState == IDLE): # Idle
-    print('Idle state, no action') # Needs a short bit of code for idle state
-    I2CMessage(0,0)
-    sleep(1)
-    I2CMessage(1,0)
-    camState = SCAN
-    # send I2C scan signal
-  elif(camState == SCAN): # Scan
+  if(camState == state.IDLE): # Idle
+    print('Moving to SCAN') # Needs a short bit of code for idle state
     if(markIDs is not None):
-      camState = ADJUST
+      camState = state.ADJUST
+      continue
+    I2CMessage(0,0)
+    I2CMessage(1,0)
+    camState = state.SCAN
+    # send I2C scan signal
+  elif(camState == state.SCAN): # Scan
+    if(markIDs is not None):
+      camState = state.ADJUST
+      print('Moving to ADJUST')
       # Send stop command to robot
       I2CMessage(0,0)
-
-
       # Small delay signal to account for robot stop delay
-  elif(camState == ADJUST): # Adjust (Camera Angle)
+  elif(camState == state.ADJUST and markIDs is not None): # Adjust (Camera Angle)
     camState, angle = angleMeas(markIDs[0], corners[0][0])
-    if(camState == ADJUST): # If the program sent back to adjust
-      rotate(angle)
-      pass
+    if(camState == state.ADJUST): # If the program sent back to adjust
+      rotate(-1*angle)
       # Send angle to robot over I2C
-
-    # If state is distMeas, no I2C should be needed
-  elif(camState == DISTANCE): # Distance
-    dist = distMeas(markID[0], corners[0][0])
+    if(adjFail):
+      camState = state.DISTANCE
+      print('Busted!')
+  elif(camState == state.DISTANCE and markIDs is not None): # Distance
+    dist = distMeas(markIDs[0], corners[0][0])
     # Send distance to Arduino
     moveForward(dist * 30.48)
-
-    camState = MOVE
+    camState = state.MOVE
+    print('Moving to MOVE')
   else: # Move
-    print('Move state, no action')
+    pass
   
 print('Done.\n')
 cap.release()
