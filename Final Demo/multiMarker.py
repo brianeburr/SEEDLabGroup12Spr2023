@@ -125,10 +125,9 @@ while True:
   
   if(camState != state.MOVE and markIDs is not None):
     arrInd = 0
-    while arrInd < len(markIDs):
+    while arrInd < len(markIDs) and detected == false:
       if(markIDs[arrInd][0] == markerInd):
         detected = True
-        break
 
   
   ## Pi-Side State Machine
@@ -166,6 +165,7 @@ while True:
     print('Moving to MOVE\n')
     
   else: # MOVE state
+    print('Marker {} reached'.format(markerInd))
     sleep(5)
     markerInd = markerInd + 1
     camState = state.IDLE
