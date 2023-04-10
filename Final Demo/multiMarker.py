@@ -21,9 +21,11 @@ GPIO.setup(4,GPIO.IN)
 ## Pi State Functions
 
 angle = 0
-markerInd = 0
+markerInd = 1
+arrInd = 0
 markerMax = 1
 adjFail = False
+detected = False
 
 def angleMeas(markID, corners, hfResX=320, hFov=29.26):
   global adjFail
@@ -119,12 +121,19 @@ while True:
   if(GPIO.input(4) == 0): # If the Arduino is busy/moving, skip loop actions
     #print("busy")
     continue
+  
+  if(camState != state.MOVE and markIDs is not None):
+    arrInd = 0
+    while arrInd < len(markIDs):
+      if(markIDs[arrInd] == [markerInd]):
+        detected = True
+        break
 
   
   ## Pi-Side State Machine
   if(camState == state.IDLE):
     print('Moving to SCAN\n')
-    if(markIDs is not None): # If marker in frame on startup, skip SCAN state
+    if(detected): # If marker in frame on startup, skip SCAN state
       camState = state.ADJUST
       print('Moving to ADJUST')
       #cv.imshow('Initial State', aruco.drawDetectedMarkers(grayed, corners))
@@ -135,14 +144,14 @@ while True:
     camState = state.SCAN
   
   elif(camState == state.SCAN):
-    if(markIDs is not None): # If a marker is detected, move to the ADJUST state
+    if(detected): # If a marker is detected, move to the ADJUST state
       # Change to only consider a single marker at a time
       camState = state.ADJUST
       print('Moving to ADJUST')
       I2CMessage(0,0) # Send stop command to Arduino for ADJUST state
       
-  elif(camState == state.ADJUST and markIDs is not None):
-    camState, angle = angleMeas(markIDs[0], corners[0][0]) # Evaluate marker angle w/ camera
+  elif(camState == state.ADJUST and detected):
+    camState, angle = angleMeas(markIDs[arrInd], corners[arrInd][0]) # Evaluate marker angle w/ camera
     if(camState == state.ADJUST): # If the angle is above the set threshold
       rotate(-1*angle) # Send angle to robot over I2C
     if(adjFail): # If the robot fails to turn the required angle, continue
@@ -150,16 +159,18 @@ while True:
       print('Busted!')
       
   elif(camState == state.DISTANCE and markIDs is not None):
-    dist = distMeas(markIDs[0], corners[0][0]) # Evaluate marker distance w/ camera
+    dist = distMeas(markIDs[arrInd], corners[arrInd][0]) # Evaluate marker distance w/ camera
     moveForward(dist * 30.48) # Send distance to Arduino
     camState = state.MOVE
     print('Moving to MOVE\n')
     
   else: # MOVE state
+    sleep(5)
     markerInd = markerInd + 1
-    camState = state.SCAN
-    if((markerInd + 1) > markerMax):
+    camState = state.IDLE
+    if(markerInd > markerMax):
       break
+  detected = False
   
 print('Done.\n')
 cap.release()
