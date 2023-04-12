@@ -21,10 +21,15 @@ GPIO.setup(4,GPIO.IN)
 ## Pi State Functions
 
 angle = 0
+adjFail = False
+
 markerInd = 1
 arrInd = 0
 markerMax = 2
+<<<<<<< HEAD
 adjFail = False
+=======
+>>>>>>> b719cd98bcd892982dff80523498127e3924cd69
 detected = False
 
 def angleMeas(markID, corners, hfResX=320, hFov=29.26):
@@ -124,8 +129,13 @@ while True:
   
   if(camState != state.MOVE and markIDs is not None):
     arrInd = 0
+<<<<<<< HEAD
     while arrInd < len(markIDs) and detected == False:
       if(markIDs[arrInd] == [markerInd]):
+=======
+    while arrInd < len(markIDs) and detected == false:
+      if(markIDs[arrInd][0] == markerInd):
+>>>>>>> b719cd98bcd892982dff80523498127e3924cd69
         detected = True
 
   
@@ -157,18 +167,20 @@ while True:
       camState = state.DISTANCE
       print('Busted!')
       
-  elif(camState == state.DISTANCE and markIDs is not None):
+  elif(camState == state.DISTANCE and detected):
     dist = distMeas(markIDs[arrInd], corners[arrInd][0]) # Evaluate marker distance w/ camera
-    moveForward(dist * 30.48) # Send distance to Arduino
+    moveForward(dist * 30.48) # Send distance to Arduino, converted to cm
     camState = state.MOVE
     print('Moving to MOVE\n')
     
   else: # MOVE state
+    print('Marker {} reached'.format(markerInd))
     sleep(5)
     markerInd = markerInd + 1
     camState = state.IDLE
     if(markerInd > markerMax):
       break
+  
   detected = False
   
 print('Done.\n')
