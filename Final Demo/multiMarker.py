@@ -21,15 +21,10 @@ GPIO.setup(4,GPIO.IN)
 ## Pi State Functions
 
 angle = 0
-adjFail = False
-
 markerInd = 1
 arrInd = 0
-markerMax = 2
-<<<<<<< HEAD
+markerMax = 6
 adjFail = False
-=======
->>>>>>> b719cd98bcd892982dff80523498127e3924cd69
 detected = False
 
 def angleMeas(markID, corners, hfResX=320, hFov=29.26):
@@ -113,10 +108,12 @@ print('Starting marker tracking...\n')
 # Setup for ArUco parameters and marker dictionary
 arucoDict = aruco.Dictionary_get(aruco.DICT_6X6_250)
 params = aruco.DetectorParameters_create()
+print('a')
 
 while True:
   ret, frame = cap.read()
   if not ret:
+    print('Frame read error')
     break
     
   # Image transformations for the detectMarkers function
@@ -124,19 +121,17 @@ while True:
   corners, markIDs, rejected = aruco.detectMarkers(grayed, arucoDict, parameters = params)
   
   if(GPIO.input(4) == 0): # If the Arduino is busy/moving, skip loop actions
-    #print("busy")
+    #print('Busy')
     continue
   
   if(camState != state.MOVE and markIDs is not None):
     arrInd = 0
-<<<<<<< HEAD
     while arrInd < len(markIDs) and detected == False:
       if(markIDs[arrInd] == [markerInd]):
-=======
-    while arrInd < len(markIDs) and detected == false:
-      if(markIDs[arrInd][0] == markerInd):
->>>>>>> b719cd98bcd892982dff80523498127e3924cd69
+        print('Correct marker in view')
         detected = True
+        arrInd -= 1
+      arrInd += 1
 
   
   ## Pi-Side State Machine
@@ -169,18 +164,18 @@ while True:
       
   elif(camState == state.DISTANCE and detected):
     dist = distMeas(markIDs[arrInd], corners[arrInd][0]) # Evaluate marker distance w/ camera
-    moveForward(dist * 30.48) # Send distance to Arduino, converted to cm
+    moveForward(dist * 30.48) # Send distance to Arduino
     camState = state.MOVE
     print('Moving to MOVE\n')
     
-  else: # MOVE state
+  elif(camState == state.MOVE): # MOVE state
+    sleep(2) # This needs to be 5 seconds for the demo!!
     print('Marker {} reached'.format(markerInd))
-    sleep(5)
     markerInd = markerInd + 1
     camState = state.IDLE
+    print('Searching for marker {}'.format(markerInd))
     if(markerInd > markerMax):
       break
-  
   detected = False
   
 print('Done.\n')
