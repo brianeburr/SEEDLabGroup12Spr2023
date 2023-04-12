@@ -23,7 +23,7 @@ GPIO.setup(4,GPIO.IN)
 angle = 0
 markerInd = 1
 arrInd = 0
-markerMax = 1
+markerMax = 2
 adjFail = False
 detected = False
 
@@ -124,10 +124,9 @@ while True:
   
   if(camState != state.MOVE and markIDs is not None):
     arrInd = 0
-    while arrInd < len(markIDs):
+    while arrInd < len(markIDs) and detected == False:
       if(markIDs[arrInd] == [markerInd]):
         detected = True
-        break
 
   
   ## Pi-Side State Machine

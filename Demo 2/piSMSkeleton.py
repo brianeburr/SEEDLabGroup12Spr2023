@@ -108,6 +108,7 @@ params = aruco.DetectorParameters_create()
 while True:
   ret, frame = cap.read()
   if not ret:
+    print('Err: frame read error')
     break
     
   # Image transformations for the detectMarkers function
